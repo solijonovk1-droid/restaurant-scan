@@ -140,8 +140,7 @@ export default function AdminPage() {
       </LinearGradient>
 
       {/* Main Content Area */}
-      <ScrollView horizontal bounces={false} contentContainerStyle={{ flexGrow: 1 }}>
-        <View style={styles.mainContent}>
+      <View style={styles.mainContent}>
         
         {/* Left Toolbar */}
         <View style={styles.toolbar}>
@@ -211,11 +210,12 @@ export default function AdminPage() {
               const textColor = t.status === 'empty' ? '#666' : '#fff';
 
               return (
-                <TouchableOpacity key={idx} style={[styles.tableCardContainer, { width: Math.max(120, cardWidth) }]}>
-                  <LinearGradient 
-                    colors={bgColors as [string, string]}
-                    style={styles.tableCard}
-                  >
+                <View key={idx} style={styles.tableCardContainer}>
+                  <TouchableOpacity style={{ flex: 1 }}>
+                    <LinearGradient 
+                      colors={bgColors as [string, string]}
+                      style={styles.tableCard}
+                    >
                     <Text style={[styles.tableName, { color: textColor }]}>{t.name}</Text>
                     
                     {t.status === 'empty' ? (
@@ -242,8 +242,9 @@ export default function AdminPage() {
                       </View>
                     )}
 
-                  </LinearGradient>
-                </TouchableOpacity>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </View>
               )
             })}
           </ScrollView>
@@ -265,7 +266,6 @@ export default function AdminPage() {
           ))}
         </View>
       </View>
-      </ScrollView>
     </View>
   );
 }
