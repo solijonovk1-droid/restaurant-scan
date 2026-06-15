@@ -37,45 +37,65 @@ const orders = [
   { id: 1, table: "Zal 2", time: "16:26", amount: "115,00 UZS" },
 ];
 
-const tables = [
-  { id: 1, name: "Zal 1", status: "empty" },
-  { id: 2, name: "Zal 2", status: "empty" },
-  { id: 3, name: "Zal 3", status: "empty" },
-  { id: 4, name: "Zal 4", status: "empty" },
-  { id: 6, name: "Zal 6", status: "empty" },
-  { 
-    id: 7, name: "Zal 7", status: "occupied", 
-    amount: "80.00 UZS", user: "Otabek", time: "19:00", people: 4 
-  },
-  { 
-    id: 8, name: "Zal 8", status: "occupied", 
-    amount: "40.00 UZS", user: "Otabek", time: "19:03" 
-  },
-  { 
-    id: 9, name: "Zal 9", status: "special", 
-    amount: "95.00 UZS", user: "Otabek", time: "18:41", people: 2, hasCloud: true 
-  },
-  { 
-    id: 10, name: "Zal 10", status: "occupied", 
-    amount: "80.00 UZS", user: "Otabek", time: "19:03" 
-  },
-  { id: 11, name: "Zal 11", status: "empty" },
-  { id: 12, name: "Zal 12", status: "empty" },
-  { id: 14, name: "Zal 14", status: "empty" },
-  { 
-    id: 141, name: "Zal 14", status: "reserved", 
-    subStatus: "Band qilingan", hasClock: true 
-  },
-  { 
-    id: 15, name: "Zal 15", status: "occupied", 
-    amount: "90.00 UZS", user: "Otabek", time: "19:03", isLocked: true 
-  },
-  { id: 16, name: "Zal 16", status: "empty" },
-  { id: 17, name: "Zal 17", status: "empty" },
-];
+const allTables: Record<string, any[]> = {
+  "ZAL": [
+    { id: 1, name: "Zal 1", status: "empty" },
+    { id: 2, name: "Zal 2", status: "empty" },
+    { id: 3, name: "Zal 3", status: "empty" },
+    { id: 4, name: "Zal 4", status: "empty" },
+    { id: 6, name: "Zal 6", status: "empty" },
+    { 
+      id: 7, name: "Zal 7", status: "occupied", 
+      amount: "80.00 UZS", user: "Otabek", time: "19:00", people: 4 
+    },
+    { 
+      id: 8, name: "Zal 8", status: "occupied", 
+      amount: "40.00 UZS", user: "Otabek", time: "19:03" 
+    },
+    { 
+      id: 9, name: "Zal 9", status: "special", 
+      amount: "95.00 UZS", user: "Otabek", time: "18:41", people: 2, hasCloud: true 
+    },
+    { 
+      id: 10, name: "Zal 10", status: "occupied", 
+      amount: "80.00 UZS", user: "Otabek", time: "19:03" 
+    },
+    { id: 11, name: "Zal 11", status: "empty" },
+    { id: 12, name: "Zal 12", status: "empty" },
+    { id: 14, name: "Zal 14", status: "empty" },
+    { 
+      id: 141, name: "Zal 14", status: "reserved", 
+      subStatus: "Band qilingan", hasClock: true 
+    },
+    { 
+      id: 15, name: "Zal 15", status: "occupied", 
+      amount: "90.00 UZS", user: "Otabek", time: "19:03", isLocked: true 
+    },
+    { id: 16, name: "Zal 16", status: "empty" },
+    { id: 17, name: "Zal 17", status: "empty" },
+  ],
+  "ZAL 2": [
+    { id: 21, name: "Zal-2 1", status: "empty" },
+    { id: 22, name: "Zal-2 2", status: "empty" },
+    { id: 23, name: "Zal-2 3", status: "occupied", amount: "120.00 UZS", user: "Sardor", time: "18:30" },
+    { id: 24, name: "Zal-2 4", status: "empty" },
+    { id: 25, name: "Zal-2 5", status: "empty" },
+    { id: 26, name: "Zal-2 6", status: "empty" },
+  ],
+};
 
 export default function AdminPage() {
-  const [activeCategory, setActiveCategory] = useState("ZAL");
+  const [activeCategory, setActiveCategory] = useState("BARCHA STOLLAR");
+
+  const displayedTables = React.useMemo(() => {
+    if (activeCategory === 'BARCHA STOLLAR') {
+      return Object.values(allTables).flat();
+    }
+    if (activeCategory === 'BAND STOLLAR') {
+      return Object.values(allTables).flat().filter(t => t.status !== 'empty');
+    }
+    return allTables[activeCategory] || [];
+  }, [activeCategory]);
 
   // Determine number of columns for grid
   const mainWidth = width - 80 - 320 - 140; // Total width minus sidebars
@@ -193,10 +213,10 @@ export default function AdminPage() {
         {/* Center Tables Grid */}
         <View style={styles.tablesPanel}>
           <View style={styles.tablesHeader}>
-            <Text style={styles.tablesHeaderBread}>Qavatlar &gt; <Text style={styles.tablesHeaderActive}>Zal</Text></Text>
+            <Text style={styles.tablesHeaderBread}>Qavatlar &gt; <Text style={styles.tablesHeaderActive}>{activeCategory}</Text></Text>
           </View>
           <ScrollView contentContainerStyle={styles.tablesGrid}>
-            {tables.map((t, idx) => {
+            {displayedTables.map((t, idx) => {
               const bgColors = t.status === 'occupied' ? ['#ff4081', '#c2185b'] 
                          : t.status === 'reserved' ? ['#e6b12a', '#d4a324']
                          : t.status === 'special' ? ['#5c6bc0', '#3f51b5']
@@ -246,7 +266,7 @@ export default function AdminPage() {
         {/* Right Categories */}
         <View style={styles.catsPanel}>
           <Text style={styles.catsHeader}>STOLLAR</Text>
-          {['BAND STOLLAR', 'ZAL', 'ZAL 2', 'TERRASA', 'BOG\''].map(cat => (
+          {['BARCHA STOLLAR', 'BAND STOLLAR', 'ZAL', 'ZAL 2'].map(cat => (
             <TouchableOpacity 
               key={cat} 
               style={[styles.catBtn, activeCategory === cat && styles.catBtnActive]}
