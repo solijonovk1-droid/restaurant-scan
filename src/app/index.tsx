@@ -5,14 +5,14 @@ import {
   StyleSheet, 
   TouchableOpacity, 
   ScrollView, 
-  Dimensions,
+  useWindowDimensions,
   Platform,
   StatusBar
 } from 'react-native';
 import { 
   Barcode, 
   Edit, 
-  XOctagon, 
+  X, 
   Package, 
   FileText, 
   MoveRight, 
@@ -25,8 +25,6 @@ import {
   Clock
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-
-const { width } = Dimensions.get('window');
 
 // Mock Data (Translated to Uzbek)
 const orders = [
@@ -76,11 +74,16 @@ const tables = [
 
 export default function AdminPage() {
   const [activeCategory, setActiveCategory] = useState("ZAL");
+  const { width } = useWindowDimensions();
 
   // Determine number of columns for grid
-  const mainWidth = width - 80 - 320 - 140; // Total width minus sidebars
-  const colCount = Math.max(3, Math.floor(mainWidth / 140));
-  const cardWidth = `${100 / colCount}%`;
+  const sidebarWidth = 70;
+  const ordersPanelWidth = Platform.OS === 'web' ? 320 : 280;
+  const rightPanelWidth = 120;
+  
+  const mainWidth = width - sidebarWidth - ordersPanelWidth - rightPanelWidth; 
+  const colCount = Math.max(2, Math.floor(mainWidth / 140));
+  const cardWidth = Math.floor(mainWidth / colCount) - 10; // -10 for margins
 
   return (
     <View style={styles.container}>
@@ -106,36 +109,39 @@ export default function AdminPage() {
           </View>
         </View>
         
-        <View style={styles.headerRight}>
-          <TouchableOpacity style={styles.iconBtn}>
-            <MoreHorizontal size={18} color="#fff" />
-          </TouchableOpacity>
-          <View style={styles.statusItem}>
-            <Wifi size={16} color="#a5d6a7" />
-            <View>
-              <Text style={styles.statusLabel}>Internet</Text>
-              <Text style={styles.statusValue}>ULANGAN</Text>
+        {width > 600 && (
+          <View style={styles.headerRight}>
+            <TouchableOpacity style={styles.iconBtn}>
+              <MoreHorizontal size={18} color="#fff" />
+            </TouchableOpacity>
+            <View style={styles.statusItem}>
+              <Wifi size={16} color="#a5d6a7" />
+              <View>
+                <Text style={styles.statusLabel}>Internet</Text>
+                <Text style={styles.statusValue}>ULANGAN</Text>
+              </View>
             </View>
+            <View style={styles.statusItem}>
+              <Server size={16} color="#a5d6a7" />
+              <View>
+                <Text style={styles.statusLabel}>Server</Text>
+                <Text style={styles.statusValue}>ULANGAN</Text>
+              </View>
+            </View>
+            <TouchableOpacity style={styles.userProfile}>
+              <User size={20} color="#fff" />
+              <View>
+                <Text style={styles.userName}>Otabek A.</Text>
+                <Text style={styles.userAction}>ALMASHTIRISH</Text>
+              </View>
+            </TouchableOpacity>
           </View>
-          <View style={styles.statusItem}>
-            <Server size={16} color="#a5d6a7" />
-            <View>
-              <Text style={styles.statusLabel}>Server</Text>
-              <Text style={styles.statusValue}>ULANGAN</Text>
-            </View>
-          </View>
-          <TouchableOpacity style={styles.userProfile}>
-            <User size={20} color="#fff" />
-            <View>
-              <Text style={styles.userName}>Otabek A.</Text>
-              <Text style={styles.userAction}>ALMASHTIRISH</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
+        )}
       </LinearGradient>
 
       {/* Main Content Area */}
-      <View style={styles.mainContent}>
+      <ScrollView horizontal bounces={false} contentContainerStyle={{ flexGrow: 1 }}>
+        <View style={styles.mainContent}>
         
         {/* Left Toolbar */}
         <View style={styles.toolbar}>
@@ -148,7 +154,7 @@ export default function AdminPage() {
             <Text style={styles.toolbarBtnText}>Tahrirlash</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.toolbarBtn}>
-            <XOctagon color="#fff" size={20} />
+            <X color="#fff" size={20} />
             <Text style={styles.toolbarBtnText}>Bekor qilish</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.toolbarBtn}>
@@ -177,9 +183,9 @@ export default function AdminPage() {
                   <Text style={styles.orderBadgeText}>{o.id}</Text>
                 </View>
                 <View style={styles.orderDetails}>
-                  <Text style={styles.orderTable}>{o.table}</Text>
+                  <Text style={styles.orderTable} numberOfLines={1}>{o.table}</Text>
                   <Text style={styles.orderTime}>{o.time}</Text>
-                  <Text style={styles.orderAmount}>{o.amount}</Text>
+                  <Text style={styles.orderAmount} numberOfLines={1}>{o.amount}</Text>
                 </View>
               </TouchableOpacity>
             ))}
@@ -205,9 +211,9 @@ export default function AdminPage() {
               const textColor = t.status === 'empty' ? '#666' : '#fff';
 
               return (
-                <TouchableOpacity key={idx} style={[styles.tableCardContainer, { width: cardWidth }]}>
+                <TouchableOpacity key={idx} style={[styles.tableCardContainer, { width: Math.max(120, cardWidth) }]}>
                   <LinearGradient 
-                    colors={bgColors}
+                    colors={bgColors as [string, string]}
                     style={styles.tableCard}
                   >
                     <Text style={[styles.tableName, { color: textColor }]}>{t.name}</Text>
@@ -246,11 +252,10 @@ export default function AdminPage() {
         {/* Right Categories */}
         <View style={styles.catsPanel}>
           <Text style={styles.catsHeader}>STOLLAR</Text>
-          {['BAND STOLLAR', 'ZAL', 'ZAL 2', 'TERRASA', 'BOG\''].map(cat => (
+          {['BAND', 'ZAL', 'ZAL 2', 'TERRASA', 'BOG\''].map(cat => (
             <TouchableOpacity 
               key={cat} 
               style={[styles.catBtn, activeCategory === cat && styles.catBtnActive]}
-              onClick={() => setActiveCategory(cat)}
               onPress={() => setActiveCategory(cat)}
             >
               <Text style={[styles.catBtnText, activeCategory === cat && styles.catBtnTextActive]}>
@@ -259,8 +264,8 @@ export default function AdminPage() {
             </TouchableOpacity>
           ))}
         </View>
-
       </View>
+      </ScrollView>
     </View>
   );
 }
@@ -280,7 +285,7 @@ const styles = StyleSheet.create({
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 20,
+    gap: 10,
   },
   logoContainer: {
     flexDirection: 'row',
@@ -288,7 +293,7 @@ const styles = StyleSheet.create({
   },
   logoText: {
     color: '#fff',
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: '800',
     letterSpacing: 1,
     marginLeft: 5,
@@ -300,13 +305,14 @@ const styles = StyleSheet.create({
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 15,
-    marginLeft: 15,
+    gap: 10,
+    marginLeft: 10,
   },
   masalarText: {
     color: '#fff',
     fontWeight: '600',
     letterSpacing: 1,
+    fontSize: 12,
   },
   bellBtn: {
     backgroundColor: '#e91e63',
@@ -375,7 +381,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   toolbar: {
-    width: 70,
+    width: 60,
     backgroundColor: '#1e1333',
     alignItems: 'center',
     paddingTop: 15,
@@ -383,19 +389,19 @@ const styles = StyleSheet.create({
   toolbarBtn: {
     alignItems: 'center',
     justifyContent: 'center',
-    width: 60,
-    height: 60,
-    marginBottom: 10,
-    borderRadius: 12,
+    width: 50,
+    height: 50,
+    marginBottom: 8,
+    borderRadius: 10,
   },
   toolbarBtnText: {
     color: '#fff',
-    fontSize: 10,
-    marginTop: 4,
+    fontSize: 8,
+    marginTop: 2,
     textAlign: 'center',
   },
   ordersPanel: {
-    width: Platform.OS === 'web' ? 320 : 280,
+    width: 220,
     backgroundColor: '#f5f5f7',
     borderRightWidth: 1,
     borderRightColor: '#e0e0e0',
@@ -408,7 +414,7 @@ const styles = StyleSheet.create({
   ordersHeaderText: {
     color: '#e91e63',
     fontWeight: '600',
-    fontSize: 14,
+    fontSize: 12,
   },
   ordersList: {
     flex: 1,
@@ -416,23 +422,22 @@ const styles = StyleSheet.create({
   orderItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    paddingHorizontal: 15,
+    padding: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
   orderBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     backgroundColor: '#e91e63',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    marginRight: 6,
   },
   orderBadgeText: {
     color: '#fff',
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: 'bold',
   },
   orderDetails: {
@@ -444,20 +449,22 @@ const styles = StyleSheet.create({
   orderTable: {
     color: '#333',
     fontWeight: '500',
-    fontSize: 13,
-    width: 60,
+    fontSize: 11,
+    width: 45,
   },
   orderTime: {
     color: '#888',
-    fontSize: 12,
+    fontSize: 10,
   },
   orderAmount: {
     color: '#333',
     fontWeight: '700',
-    fontSize: 13,
+    fontSize: 11,
+    textAlign: 'right',
+    flex: 1,
   },
   ordersFooter: {
-    padding: 20,
+    padding: 15,
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
     flexDirection: 'row',
@@ -467,23 +474,23 @@ const styles = StyleSheet.create({
   ordersFooterLabel: {
     color: '#333',
     fontWeight: '700',
-    fontSize: 15,
+    fontSize: 13,
   },
   ordersFooterPrice: {
     color: '#333',
     fontWeight: 'bold',
-    fontSize: 22,
+    fontSize: 16,
   },
   tablesPanel: {
     flex: 1,
     backgroundColor: '#e9ecef',
   },
   tablesHeader: {
-    padding: 15,
+    padding: 10,
   },
   tablesHeaderBread: {
     color: '#666',
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '500',
   },
   tablesHeaderActive: {
@@ -493,16 +500,15 @@ const styles = StyleSheet.create({
   tablesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    padding: 10,
+    padding: 5,
   },
   tableCardContainer: {
     padding: 5,
-    minWidth: 130, // For smaller screens
   },
   tableCard: {
-    height: 120,
+    height: 100,
     borderRadius: 12,
-    padding: 10,
+    padding: 8,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -513,63 +519,63 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   tableName: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '600',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   tableStatus: {
-    fontSize: 12,
+    fontSize: 11,
   },
   tableAmount: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: 'bold',
-    marginTop: 4,
+    marginTop: 2,
   },
   tableFooterInfo: {
     position: 'absolute',
-    bottom: 8,
-    left: 8,
-    right: 8,
+    bottom: 5,
+    left: 5,
+    right: 5,
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
   tableFooterText: {
-    fontSize: 10,
+    fontSize: 9,
     opacity: 0.8,
   },
   tableIconTop: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    top: 5,
+    right: 5,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(0,0,0,0.2)',
-    paddingHorizontal: 5,
+    paddingHorizontal: 4,
     paddingVertical: 2,
-    borderRadius: 8,
-    gap: 3,
+    borderRadius: 6,
+    gap: 2,
   },
   tablePeopleText: {
-    fontSize: 10,
+    fontSize: 9,
   },
   catsPanel: {
-    width: 120,
+    width: 80,
     backgroundColor: '#1e1333',
     paddingTop: 20,
   },
   catsHeader: {
     color: '#aaa',
-    fontSize: 11,
+    fontSize: 9,
     textAlign: 'center',
     marginBottom: 10,
     letterSpacing: 1,
   },
   catBtn: {
-    paddingVertical: 12,
-    paddingHorizontal: 5,
-    marginHorizontal: 10,
-    marginVertical: 5,
-    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 2,
+    marginHorizontal: 5,
+    marginVertical: 4,
+    borderRadius: 15,
     alignItems: 'center',
   },
   catBtnActive: {
@@ -577,8 +583,9 @@ const styles = StyleSheet.create({
   },
   catBtnText: {
     color: '#fff',
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '500',
+    textAlign: 'center',
   },
   catBtnTextActive: {
     color: '#333',
