@@ -7,7 +7,9 @@ import {
   ScrollView, 
   useWindowDimensions,
   Platform,
-  StatusBar
+  StatusBar,
+  Alert,
+  Modal
 } from 'react-native';
 import { 
   Barcode, 
@@ -25,6 +27,7 @@ import {
   Clock
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 
 // Mock Data (Translated to Uzbek)
 const orders = [
@@ -75,7 +78,15 @@ const allTables: Record<string, any[]> = {
 
 export default function AdminPage() {
   const [activeCategory, setActiveCategory] = useState("BARCHA STOLLAR");
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalContent, setModalContent] = useState({ title: '', message: '' });
   const { width } = useWindowDimensions();
+  const router = useRouter();
+
+  const showModal = (title: string, message: string) => {
+    setModalContent({ title, message });
+    setModalVisible(true);
+  };
 
   const displayedTables = React.useMemo(() => {
     if (activeCategory === 'BARCHA STOLLAR') {
@@ -112,7 +123,7 @@ export default function AdminPage() {
           </TouchableOpacity>
           <View style={styles.headerActions}>
             <Text style={styles.masalarText}>STOLLAR</Text>
-            <TouchableOpacity style={styles.bellBtn}>
+            <TouchableOpacity style={styles.bellBtn} onPress={() => showModal("Bildirishnomalar", "Yangi bildirishnomalar yo'q.")}>
               <Bell size={18} color="#fff" />
               <View style={styles.badge}><Text style={styles.badgeText}>12</Text></View>
             </TouchableOpacity>
@@ -121,7 +132,7 @@ export default function AdminPage() {
         
         {width > 600 && (
           <View style={styles.headerRight}>
-            <TouchableOpacity style={styles.iconBtn}>
+            <TouchableOpacity style={styles.iconBtn} onPress={() => showModal("Qo'shimcha", "Qo'shimcha menyu ochildi.")}>
               <MoreHorizontal size={18} color="#fff" />
             </TouchableOpacity>
             <View style={styles.statusItem}>
@@ -138,7 +149,7 @@ export default function AdminPage() {
                 <Text style={styles.statusValue}>ULANGAN</Text>
               </View>
             </View>
-            <TouchableOpacity style={styles.userProfile}>
+            <TouchableOpacity style={styles.userProfile} onPress={() => showModal("Profil", "Foydalanuvchi profili ochildi.")}>
               <User size={20} color="#fff" />
               <View>
                 <Text style={styles.userName}>Otabek A.</Text>
@@ -155,14 +166,14 @@ export default function AdminPage() {
         {/* Left Toolbar */}
         <View style={styles.toolbar}>
           {[
-            { icon: Barcode, text: 'Shtrix-kod' },
-            { icon: Edit, text: 'Tahrirlash' },
-            { icon: X, text: 'Bekor qilish' },
-            { icon: Package, text: 'Dastavka' },
-            { icon: FileText, text: 'Eslatmalar' },
-            { icon: MoveRight, text: 'Ko\'chirish' }
+            { icon: Barcode, text: 'Shtrix-kod', action: () => showModal("Shtrix-kod", "Shtrix-kod skaneri ishga tushirildi.") },
+            { icon: Edit, text: 'Tahrirlash', action: () => showModal("Tahrirlash", "Tahrirlash rejimi yoqildi.") },
+            { icon: X, text: 'Bekor qilish', action: () => showModal("Bekor qilish", "Amaliyot bekor qilindi.") },
+            { icon: Package, text: 'Dastavka', action: () => showModal("Dastavka", "Dastavka bo'limi ochildi.") },
+            { icon: FileText, text: 'Eslatmalar', action: () => router.push('/orders') },
+            { icon: MoveRight, text: 'Ko\'chirish', action: () => showModal("Ko'chirish", "Stolni ko'chirish bo'limi ochildi.") }
           ].map((item, i) => (
-            <TouchableOpacity key={i} style={styles.toolbarBtn}>
+            <TouchableOpacity key={i} style={styles.toolbarBtn} onPress={item.action}>
               <item.icon color="#fff" size={20} />
               <Text style={styles.toolbarBtnText}>{item.text}</Text>
             </TouchableOpacity>
@@ -176,7 +187,7 @@ export default function AdminPage() {
           </View>
           <ScrollView style={styles.ordersList}>
             {orders.map((o) => (
-              <TouchableOpacity key={o.id} style={styles.orderItem}>
+              <TouchableOpacity key={o.id} style={styles.orderItem} onPress={() => showModal("Buyurtma", `Buyurtma ${o.id} (${o.table}) tanlandi.`)}>
                 <View style={styles.orderBadge}>
                   <Text style={styles.orderBadgeText}>{o.id}</Text>
                 </View>
@@ -210,7 +221,7 @@ export default function AdminPage() {
 
               return (
                 <View key={idx} style={styles.tableCardContainer}>
-                  <TouchableOpacity style={{ flex: 1 }}>
+                  <TouchableOpacity style={{ flex: 1 }} onPress={() => showModal("Stol", `${t.name} tanlandi. Holati: ${t.status}`)}>
                     <LinearGradient 
                       colors={bgColors as [string, string]}
                       style={styles.tableCard}
@@ -264,6 +275,28 @@ export default function AdminPage() {
           ))}
         </View>
       </View>
+
+      {/* Custom Modal for Alerts */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>{modalContent.title}</Text>
+            <Text style={styles.modalMessage}>{modalContent.message}</Text>
+            <TouchableOpacity 
+              style={styles.modalButton} 
+              onPress={() => setModalVisible(false)}
+            >
+              <Text style={styles.modalButtonText}>Yopish</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }
@@ -325,5 +358,11 @@ const styles = StyleSheet.create({
   catBtn: { paddingVertical: 8, marginHorizontal: 8, marginVertical: 3, borderRadius: 12, alignItems: 'center' },
   catBtnActive: { backgroundColor: '#fff' },
   catBtnText: { color: '#fff', fontSize: 9, fontWeight: '600', textAlign: 'center' },
-  catBtnTextActive: { color: '#212529' }
+  catBtnTextActive: { color: '#212529' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  modalContent: { backgroundColor: '#fff', padding: 20, borderRadius: 12, minWidth: 250, alignItems: 'center', elevation: 5, shadowColor: '#000', shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.25, shadowRadius: 3.84 },
+  modalTitle: { fontSize: 16, fontWeight: 'bold', color: '#120e1f', marginBottom: 10 },
+  modalMessage: { fontSize: 14, color: '#495057', textAlign: 'center', marginBottom: 20 },
+  modalButton: { backgroundColor: '#e91e63', paddingVertical: 8, paddingHorizontal: 20, borderRadius: 8 },
+  modalButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 14 }
 });
