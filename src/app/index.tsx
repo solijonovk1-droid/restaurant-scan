@@ -7,7 +7,8 @@ import {
   ScrollView, 
   useWindowDimensions,
   Platform,
-  StatusBar
+  StatusBar,
+  Modal
 } from 'react-native';
 import { 
   Barcode, 
@@ -28,11 +29,25 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 // Mock Data (Translated to Uzbek)
 const orders = [
-  { id: 5, table: "Stol 8", time: "17:43", amount: "156,00 UZS" },
-  { id: 4, table: "Stol 10", time: "17:25", amount: "269,00 UZS" },
-  { id: 3, table: "Stol 6", time: "17:14", amount: "177,00 UZS" },
-  { id: 2, table: "Fotih D.", time: "16:52", amount: "645,00 UZS" },
-  { id: 1, table: "Stol 2", time: "16:26", amount: "115,00 UZS" },
+  { 
+    id: 5, table: "Stol 8", time: "17:43", amount: "156,00 UZS",
+    items: [
+      { name: "Osh", qty: 2, price: "60.00 UZS" },
+      { name: "Choy", qty: 1, price: "5.00 UZS" },
+      { name: "Salat (Achchiq-chuchuk)", qty: 2, price: "30.00 UZS" }
+    ]
+  },
+  { 
+    id: 4, table: "Stol 10", time: "17:25", amount: "269,00 UZS",
+    items: [
+      { name: "Shashlik (Qiyma)", qty: 5, price: "100.00 UZS" },
+      { name: "Non", qty: 2, price: "10.00 UZS" },
+      { name: "Cola 1L", qty: 1, price: "15.00 UZS" }
+    ]
+  },
+  { id: 3, table: "Stol 6", time: "17:14", amount: "177,00 UZS", items: [{ name: "Manti", qty: 4, price: "40.00 UZS" }] },
+  { id: 2, table: "Fotih D.", time: "16:52", amount: "645,00 UZS", items: [] },
+  { id: 1, table: "Stol 2", time: "16:26", amount: "115,00 UZS", items: [] },
 ];
 
 const tables = [
@@ -43,19 +58,30 @@ const tables = [
   { id: 6, name: "Stol 6", status: "empty" },
   { 
     id: 7, name: "Stol 7", status: "occupied", 
-    amount: "80.00 UZS", user: "Otabek", time: "19:00", people: 4 
+    amount: "80.00 UZS", user: "Otabek", time: "19:00", people: 4,
+    items: [
+      { name: "Norin", qty: 2, price: "60.00 UZS" },
+      { name: "Choy", qty: 1, price: "5.00 UZS" }
+    ]
   },
   { 
     id: 8, name: "Stol 8", status: "occupied", 
-    amount: "40.00 UZS", user: "Otabek", time: "19:03" 
+    amount: "40.00 UZS", user: "Otabek", time: "19:03",
+    items: [
+      { name: "Lag'mon", qty: 2, price: "40.00 UZS" }
+    ]
   },
   { 
     id: 9, name: "Stol 9", status: "special", 
-    amount: "95.00 UZS", user: "Otabek", time: "18:41", people: 2, hasCloud: true 
+    amount: "95.00 UZS", user: "Otabek", time: "18:41", people: 2, hasCloud: true,
+    items: [
+      { name: "Somsa", qty: 5, price: "95.00 UZS" }
+    ]
   },
   { 
     id: 10, name: "Stol 10", status: "occupied", 
-    amount: "80.00 UZS", user: "Otabek", time: "19:03" 
+    amount: "80.00 UZS", user: "Otabek", time: "19:03",
+    items: []
   },
   { id: 11, name: "Stol 11", status: "empty" },
   { id: 12, name: "Stol 12", status: "empty" },
@@ -74,6 +100,7 @@ const tables = [
 
 export default function AdminPage() {
   const [activeCategory, setActiveCategory] = useState("ZAL");
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const { width } = useWindowDimensions();
 
   // Determine number of columns for grid
@@ -177,7 +204,7 @@ export default function AdminPage() {
           </View>
           <ScrollView style={styles.ordersList}>
             {orders.map((o) => (
-              <TouchableOpacity key={o.id} style={styles.orderItem}>
+              <TouchableOpacity key={o.id} style={styles.orderItem} onPress={() => setSelectedOrder(o)}>
                 <View style={styles.orderBadge}>
                   <Text style={styles.orderBadgeText}>{o.id}</Text>
                 </View>
@@ -211,7 +238,7 @@ export default function AdminPage() {
 
               return (
                 <View key={idx} style={styles.tableCardContainer}>
-                  <TouchableOpacity style={{ flex: 1 }}>
+                  <TouchableOpacity style={{ flex: 1 }} onPress={() => t.status !== 'empty' && setSelectedOrder({ id: t.id, table: t.name, amount: t.amount, time: t.time, items: t.items || [] })}>
                     <LinearGradient 
                       colors={bgColors as [string, string]}
                       style={styles.tableCard}
@@ -266,6 +293,49 @@ export default function AdminPage() {
           ))}
         </View>
       </View>
+
+      {/* Order Details Modal */}
+      <Modal
+        visible={!!selectedOrder}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setSelectedOrder(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {selectedOrder?.id ? `Buyurtma #${selectedOrder.id}` : 'Buyurtma'}
+                {selectedOrder?.table ? ` - ${selectedOrder.table}` : ''}
+              </Text>
+              <TouchableOpacity onPress={() => setSelectedOrder(null)}>
+                <X color="#333" size={24} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.modalBody}>
+              {selectedOrder?.items?.length > 0 ? (
+                selectedOrder.items.map((item: any, idx: number) => (
+                  <View key={idx} style={styles.modalItemRow}>
+                    <View>
+                      <Text style={styles.modalItemName}>{item.name}</Text>
+                      <Text style={styles.modalItemQty}>{item.qty} dona</Text>
+                    </View>
+                    <Text style={styles.modalItemPrice}>{item.price}</Text>
+                  </View>
+                ))
+              ) : (
+                <Text style={{ textAlign: 'center', color: '#888', marginTop: 20 }}>
+                  Buyurtma tafsilotlari hozircha bo'sh
+                </Text>
+              )}
+            </ScrollView>
+            <View style={styles.modalFooter}>
+              <Text style={styles.modalTotalLabel}>JAMI:</Text>
+              <Text style={styles.modalTotalPrice}>{selectedOrder?.amount}</Text>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -591,5 +661,83 @@ const styles = StyleSheet.create({
   },
   catBtnTextActive: {
     color: '#212529',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  modalContent: {
+    width: '90%',
+    maxWidth: 400,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    overflow: 'hidden',
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: '#f8f9fa',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e9ecef'
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#343a40'
+  },
+  modalBody: {
+    maxHeight: 400,
+    padding: 20
+  },
+  modalItemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f8f9fa',
+    paddingVertical: 12
+  },
+  modalItemName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#495057'
+  },
+  modalItemQty: {
+    fontSize: 13,
+    color: '#868e96',
+    marginTop: 4
+  },
+  modalItemPrice: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#e91e63'
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: '#f1f3f5',
+    borderTopWidth: 1,
+    borderTopColor: '#e9ecef'
+  },
+  modalTotalLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#495057'
+  },
+  modalTotalPrice: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#e91e63'
   }
 });
