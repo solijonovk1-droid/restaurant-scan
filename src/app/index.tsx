@@ -5,7 +5,7 @@ import {
   StyleSheet, 
   TouchableOpacity, 
   ScrollView, 
-  Dimensions,
+  useWindowDimensions,
   Platform,
   StatusBar,
   Modal,
@@ -14,7 +14,7 @@ import {
 import { 
   Barcode, 
   Edit, 
-  XOctagon, 
+  X, 
   Package, 
   FileText, 
   MoveRight, 
@@ -29,61 +29,41 @@ import {
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
-const { width } = Dimensions.get('window');
-
 // Mock Data (Translated to Uzbek)
 const orders = [
-  { id: 5, table: "Zal 8", time: "17:43", amount: "156,00 UZS" },
-  { id: 4, table: "Zal 10", time: "17:25", amount: "269,00 UZS" },
-  { id: 3, table: "Zal 6", time: "17:14", amount: "177,00 UZS" },
+  { id: 5, table: "Stol 8", time: "17:43", amount: "156,00 UZS" },
+  { id: 4, table: "Stol 10", time: "17:25", amount: "269,00 UZS" },
+  { id: 3, table: "Stol 6", time: "17:14", amount: "177,00 UZS" },
   { id: 2, table: "Fotih D.", time: "16:52", amount: "645,00 UZS" },
-  { id: 1, table: "Zal 2", time: "16:26", amount: "115,00 UZS" },
+  { id: 1, table: "Stol 2", time: "16:26", amount: "115,00 UZS" },
 ];
 
 const initialTables: Record<string, any[]> = {
   "ZAL": [
-    { id: 1, name: "Zal 1", status: "empty" },
-    { id: 2, name: "Zal 2", status: "empty" },
-    { id: 3, name: "Zal 3", status: "empty" },
-    { id: 4, name: "Zal 4", status: "empty" },
-    { id: 6, name: "Zal 6", status: "empty" },
-    { 
-      id: 7, name: "Zal 7", status: "occupied", 
-      amount: "80.00 UZS", user: "Otabek", time: "19:00", people: 4 
-    },
-    { 
-      id: 8, name: "Zal 8", status: "occupied", 
-      amount: "40.00 UZS", user: "Otabek", time: "19:03" 
-    },
-    { 
-      id: 9, name: "Zal 9", status: "special", 
-      amount: "95.00 UZS", user: "Otabek", time: "18:41", people: 2, hasCloud: true 
-    },
-    { 
-      id: 10, name: "Zal 10", status: "occupied", 
-      amount: "80.00 UZS", user: "Otabek", time: "19:03" 
-    },
-    { id: 11, name: "Zal 11", status: "empty" },
-    { id: 12, name: "Zal 12", status: "empty" },
-    { id: 14, name: "Zal 14", status: "empty" },
-    { 
-      id: 141, name: "Zal 14", status: "reserved", 
-      subStatus: "Band qilingan", hasClock: true 
-    },
-    { 
-      id: 15, name: "Zal 15", status: "occupied", 
-      amount: "90.00 UZS", user: "Otabek", time: "19:03", isLocked: true 
-    },
-    { id: 16, name: "Zal 16", status: "empty" },
-    { id: 17, name: "Zal 17", status: "empty" },
+    { id: 1, name: "Stol 1", status: "empty" },
+    { id: 2, name: "Stol 2", status: "empty" },
+    { id: 3, name: "Stol 3", status: "empty" },
+    { id: 4, name: "Stol 4", status: "empty" },
+    { id: 6, name: "Stol 6", status: "empty" },
+    { id: 7, name: "Stol 7", status: "occupied", amount: "80.00 UZS", user: "Otabek", time: "19:00", people: 4 },
+    { id: 8, name: "Stol 8", status: "occupied", amount: "40.00 UZS", user: "Otabek", time: "19:03" },
+    { id: 9, name: "Stol 9", status: "special", amount: "95.00 UZS", user: "Otabek", time: "18:41", people: 2, hasCloud: true },
+    { id: 10, name: "Stol 10", status: "occupied", amount: "80.00 UZS", user: "Otabek", time: "19:03" },
+    { id: 11, name: "Stol 11", status: "empty" },
+    { id: 12, name: "Stol 12", status: "empty" },
+    { id: 14, name: "Stol 14", status: "empty" },
+    { id: 141, name: "Stol 14", status: "reserved", subStatus: "Band qilingan", hasClock: true },
+    { id: 15, name: "Stol 15", status: "occupied", amount: "90.00 UZS", user: "Otabek", time: "19:03", isLocked: true },
+    { id: 16, name: "Stol 16", status: "empty" },
+    { id: 17, name: "Stol 17", status: "empty" },
   ],
   "ZAL 2": [
-    { id: 21, name: "Zal-2 1", status: "empty" },
-    { id: 22, name: "Zal-2 2", status: "empty" },
-    { id: 23, name: "Zal-2 3", status: "occupied", amount: "120.00 UZS", user: "Sardor", time: "18:30" },
-    { id: 24, name: "Zal-2 4", status: "empty" },
-    { id: 25, name: "Zal-2 5", status: "empty" },
-    { id: 26, name: "Zal-2 6", status: "empty" },
+    { id: 21, name: "Stol-2 1", status: "empty" },
+    { id: 22, name: "Stol-2 2", status: "empty" },
+    { id: 23, name: "Stol-2 3", status: "occupied", amount: "120.00 UZS", user: "Sardor", time: "18:30" },
+    { id: 24, name: "Stol-2 4", status: "empty" },
+    { id: 25, name: "Stol-2 5", status: "empty" },
+    { id: 26, name: "Stol-2 6", status: "empty" },
   ],
   "TERRASA": [
     { id: 31, name: "Terrasa 1", status: "empty" },
@@ -98,6 +78,7 @@ const initialTables: Record<string, any[]> = {
 
 export default function AdminPage() {
   const [activeCategory, setActiveCategory] = useState("BARCHA STOLLAR");
+  const { width } = useWindowDimensions();
   
   const [tablesState, setTablesState] = useState(initialTables);
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -142,9 +123,12 @@ export default function AdminPage() {
   };
 
   // Determine number of columns for grid
-  const mainWidth = width - 80 - 320 - 140; // Total width minus sidebars
-  const colCount = Math.max(3, Math.floor(mainWidth / 140));
-  const cardWidth = `${100 / colCount}%`;
+  const sidebarWidth = 55;
+  const ordersPanelWidth = 200;
+  const catsPanelWidth = 90;
+  
+  const mainWidth = width - sidebarWidth - ordersPanelWidth - catsPanelWidth; 
+  const colCount = Math.max(2, Math.floor(mainWidth / 140));
 
   return (
     <View style={styles.container}>
@@ -170,32 +154,34 @@ export default function AdminPage() {
           </View>
         </View>
         
-        <View style={styles.headerRight}>
-          <TouchableOpacity style={styles.iconBtn}>
-            <MoreHorizontal size={18} color="#fff" />
-          </TouchableOpacity>
-          <View style={styles.statusItem}>
-            <Wifi size={16} color="#a5d6a7" />
-            <View>
-              <Text style={styles.statusLabel}>Internet</Text>
-              <Text style={styles.statusValue}>ULANGAN</Text>
+        {width > 600 && (
+          <View style={styles.headerRight}>
+            <TouchableOpacity style={styles.iconBtn}>
+              <MoreHorizontal size={18} color="#fff" />
+            </TouchableOpacity>
+            <View style={styles.statusItem}>
+              <Wifi size={16} color="#a5d6a7" />
+              <View>
+                <Text style={styles.statusLabel}>Internet</Text>
+                <Text style={styles.statusValue}>ULANGAN</Text>
+              </View>
             </View>
+            <View style={styles.statusItem}>
+              <Server size={16} color="#a5d6a7" />
+              <View>
+                <Text style={styles.statusLabel}>Server</Text>
+                <Text style={styles.statusValue}>ULANGAN</Text>
+              </View>
+            </View>
+            <TouchableOpacity style={styles.userProfile}>
+              <User size={20} color="#fff" />
+              <View>
+                <Text style={styles.userName}>Otabek A.</Text>
+                <Text style={styles.userAction}>ALMASHTIRISH</Text>
+              </View>
+            </TouchableOpacity>
           </View>
-          <View style={styles.statusItem}>
-            <Server size={16} color="#a5d6a7" />
-            <View>
-              <Text style={styles.statusLabel}>Server</Text>
-              <Text style={styles.statusValue}>ULANGAN</Text>
-            </View>
-          </View>
-          <TouchableOpacity style={styles.userProfile}>
-            <User size={20} color="#fff" />
-            <View>
-              <Text style={styles.userName}>Otabek A.</Text>
-              <Text style={styles.userAction}>ALMASHTIRISH</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
+        )}
       </LinearGradient>
 
       {/* Main Content Area */}
@@ -203,30 +189,19 @@ export default function AdminPage() {
         
         {/* Left Toolbar */}
         <View style={styles.toolbar}>
-          <TouchableOpacity style={styles.toolbarBtn}>
-            <Barcode color="#fff" size={20} />
-            <Text style={styles.toolbarBtnText}>Shtrix-kod</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.toolbarBtn}>
-            <Edit color="#fff" size={20} />
-            <Text style={styles.toolbarBtnText}>Tahrirlash</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.toolbarBtn}>
-            <XOctagon color="#fff" size={20} />
-            <Text style={styles.toolbarBtnText}>Bekor qilish</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.toolbarBtn}>
-            <Package color="#fff" size={20} />
-            <Text style={styles.toolbarBtnText}>Dastavka</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.toolbarBtn}>
-            <FileText color="#fff" size={20} />
-            <Text style={styles.toolbarBtnText}>Eslatmalar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.toolbarBtn}>
-            <MoveRight color="#fff" size={20} />
-            <Text style={styles.toolbarBtnText}>Ko'chirish</Text>
-          </TouchableOpacity>
+          {[
+            { icon: Barcode, text: 'Shtrix-kod' },
+            { icon: Edit, text: 'Tahrirlash' },
+            { icon: X, text: 'Bekor qilish' },
+            { icon: Package, text: 'Dastavka' },
+            { icon: FileText, text: 'Eslatmalar' },
+            { icon: MoveRight, text: 'Ko\'chirish' }
+          ].map((item, i) => (
+            <TouchableOpacity key={i} style={styles.toolbarBtn}>
+              <item.icon color="#fff" size={20} />
+              <Text style={styles.toolbarBtnText}>{item.text}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
         {/* Orders Panel */}
@@ -241,9 +216,9 @@ export default function AdminPage() {
                   <Text style={styles.orderBadgeText}>{o.id}</Text>
                 </View>
                 <View style={styles.orderDetails}>
-                  <Text style={styles.orderTable}>{o.table}</Text>
+                  <Text style={styles.orderTable} numberOfLines={1}>{o.table}</Text>
                   <Text style={styles.orderTime}>{o.time}</Text>
-                  <Text style={styles.orderAmount}>{o.amount}</Text>
+                  <Text style={styles.orderAmount} numberOfLines={1}>{o.amount}</Text>
                 </View>
               </TouchableOpacity>
             ))}
@@ -256,6 +231,7 @@ export default function AdminPage() {
 
         {/* Center Tables Grid */}
         <View style={styles.tablesPanel}>
+<<<<<<< HEAD
           <View style={[styles.tablesHeader, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
             <Text style={styles.tablesHeaderBread}>Qavatlar &gt; <Text style={styles.tablesHeaderActive}>{activeCategory}</Text></Text>
             <TouchableOpacity 
@@ -272,6 +248,10 @@ export default function AdminPage() {
               <Plus size={16} color="#fff" />
               <Text style={styles.addTableBtnText}>Stol qo'shish</Text>
             </TouchableOpacity>
+=======
+          <View style={styles.tablesHeader}>
+            <Text style={styles.tablesHeaderBread}>Qavatlar &gt; <Text style={styles.tablesHeaderActive}>{activeCategory === 'BARCHA STOLLAR' ? 'Asosiy Zal' : activeCategory}</Text></Text>
+>>>>>>> 9ea30fb5fb8ae1819994b61a9064bfb2be34f6ef
           </View>
           <ScrollView contentContainerStyle={styles.tablesGrid}>
             {displayedTables.map((t, idx) => {
@@ -286,11 +266,20 @@ export default function AdminPage() {
               const textColor = t.status === 'empty' && !isDark ? '#666' : '#fff';
 
               return (
+<<<<<<< HEAD
                 <TouchableOpacity key={idx} style={[styles.tableCardContainer, { width: cardWidth }]}>
                   <LinearGradient 
                     colors={bgColors as [string, string]}
                     style={styles.tableCard}
                   >
+=======
+                <View key={idx} style={styles.tableCardContainer}>
+                  <TouchableOpacity style={{ flex: 1 }}>
+                    <LinearGradient 
+                      colors={bgColors as [string, string]}
+                      style={styles.tableCard}
+                    >
+>>>>>>> 9ea30fb5fb8ae1819994b61a9064bfb2be34f6ef
                     <Text style={[styles.tableName, { color: textColor }]}>{t.name}</Text>
                     {t.number ? <Text style={{fontSize: 10, color: textColor, opacity: 0.8}}>№: {t.number}</Text> : null}
                     {t.barcode ? <Text style={{fontSize: 9, color: textColor, opacity: 0.6}}>Kod: {t.barcode}</Text> : null}
@@ -318,9 +307,9 @@ export default function AdminPage() {
                         <Text style={[styles.tablePeopleText, { color: textColor }]}>{t.people}</Text>
                       </View>
                     )}
-
-                  </LinearGradient>
-                </TouchableOpacity>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </View>
               )
             })}
           </ScrollView>
@@ -341,7 +330,6 @@ export default function AdminPage() {
             </TouchableOpacity>
           ))}
         </View>
-
       </View>
 
       {/* Modal */}
@@ -399,6 +387,7 @@ export default function AdminPage() {
 }
 
 const styles = StyleSheet.create({
+<<<<<<< HEAD
   container: {
     flex: 1,
     backgroundColor: '#120e1f',
@@ -837,4 +826,63 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold'
   }
+=======
+  container: { flex: 1, backgroundColor: '#fff' },
+  header: { height: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12 },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  logoContainer: { flexDirection: 'row', alignItems: 'center' },
+  logoText: { color: '#fff', fontSize: 14, fontWeight: '700', letterSpacing: 0.5 },
+  logoTextLight: { fontWeight: '300' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', marginLeft: 10 },
+  masalarText: { color: '#fff', fontWeight: '600', fontSize: 11, letterSpacing: 0.5 },
+  bellBtn: { backgroundColor: '#e91e63', padding: 5, borderRadius: 15, marginLeft: 8 },
+  badge: { position: 'absolute', top: -4, right: -4, backgroundColor: '#fff', borderRadius: 8, paddingHorizontal: 3, minWidth: 14, alignItems: 'center' },
+  badgeText: { color: '#e91e63', fontSize: 9, fontWeight: '800' },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  iconBtn: { backgroundColor: 'rgba(255,255,255,0.15)', padding: 5, borderRadius: 15 },
+  statusItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  statusLabel: { color: '#eee', fontSize: 8 },
+  statusValue: { color: '#a5d6a7', fontWeight: '700', fontSize: 10 },
+  userProfile: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  userName: { color: '#fff', fontWeight: 'bold', fontSize: 11 },
+  userAction: { color: '#ddd', fontSize: 8, textAlign: 'right' },
+  mainContent: { flex: 1, flexDirection: 'row' },
+  toolbar: { width: 55, backgroundColor: '#1a112d', alignItems: 'center', paddingTop: 10 },
+  toolbarBtn: { alignItems: 'center', justifyContent: 'center', width: 45, height: 45, marginBottom: 6, borderRadius: 8 },
+  toolbarBtnText: { color: '#fff', fontSize: 7, marginTop: 2, textAlign: 'center' },
+  ordersPanel: { width: 200, backgroundColor: '#f1f3f5', borderRightWidth: 1, borderRightColor: '#dee2e6' },
+  ordersHeader: { padding: 10, borderBottomWidth: 1, borderBottomColor: '#dee2e6' },
+  ordersHeaderText: { color: '#e91e63', fontWeight: '700', fontSize: 10, textTransform: 'uppercase' },
+  ordersList: { flex: 1 },
+  orderItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 10, borderBottomWidth: 1, borderBottomColor: '#e9ecef' },
+  orderBadge: { width: 18, height: 18, borderRadius: 9, backgroundColor: '#e91e63', alignItems: 'center', justifyContent: 'center', marginRight: 6 },
+  orderBadgeText: { color: '#fff', fontSize: 9, fontWeight: 'bold' },
+  orderDetails: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  orderTable: { color: '#495057', fontWeight: '600', fontSize: 10, width: 40 },
+  orderTime: { color: '#868e96', fontSize: 9 },
+  orderAmount: { color: '#212529', fontWeight: '700', fontSize: 10, textAlign: 'right' },
+  ordersFooter: { padding: 12, borderTopWidth: 1, borderTopColor: '#dee2e6', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff' },
+  ordersFooterLabel: { color: '#212529', fontWeight: '700', fontSize: 11 },
+  ordersFooterPrice: { color: '#212529', fontWeight: '800', fontSize: 14 },
+  tablesPanel: { flex: 1, backgroundColor: '#e9ecef' },
+  tablesHeader: { paddingVertical: 10, paddingHorizontal: 15 },
+  tablesHeaderBread: { color: '#868e96', fontSize: 10, fontWeight: '500' },
+  tablesHeaderActive: { color: '#212529', fontWeight: '700' },
+  tablesGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 10 },
+  tableCardContainer: { width: '12.5%', padding: 4, minHeight: 85 },
+  tableCard: { flex: 1, borderRadius: 8, padding: 6, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#dee2e6', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 },
+  tableName: { fontSize: 11, fontWeight: '700', marginBottom: 4 },
+  tableStatus: { fontSize: 9, opacity: 0.7 },
+  tableAmount: { fontSize: 11, fontWeight: '800', marginTop: 2 },
+  tableFooterInfo: { position: 'absolute', bottom: 4, left: 4, right: 4, flexDirection: 'row', justifyContent: 'space-between' },
+  tableFooterText: { fontSize: 8, opacity: 0.9 },
+  tableIconTop: { position: 'absolute', top: 4, right: 4, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.1)', paddingHorizontal: 3, paddingVertical: 1, borderRadius: 4 },
+  tablePeopleText: { fontSize: 7, fontWeight: 'bold' },
+  catsPanel: { width: 90, backgroundColor: '#1a112d', paddingTop: 15 },
+  catsHeader: { color: '#adb5bd', fontSize: 8, textAlign: 'center', marginBottom: 8, letterSpacing: 0.5, textTransform: 'uppercase' },
+  catBtn: { paddingVertical: 8, marginHorizontal: 8, marginVertical: 3, borderRadius: 12, alignItems: 'center' },
+  catBtnActive: { backgroundColor: '#fff' },
+  catBtnText: { color: '#fff', fontSize: 9, fontWeight: '600', textAlign: 'center' },
+  catBtnTextActive: { color: '#212529' }
+>>>>>>> 9ea30fb5fb8ae1819994b61a9064bfb2be34f6ef
 });
