@@ -7,7 +7,9 @@ import {
   ScrollView, 
   Dimensions,
   Platform,
-  StatusBar
+  StatusBar,
+  Modal,
+  TextInput
 } from 'react-native';
 import { 
   Barcode, 
@@ -22,7 +24,8 @@ import {
   Server, 
   User,
   MoreHorizontal,
-  Clock
+  Clock,
+  Plus
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -37,7 +40,7 @@ const orders = [
   { id: 1, table: "Zal 2", time: "16:26", amount: "115,00 UZS" },
 ];
 
-const allTables: Record<string, any[]> = {
+const initialTables: Record<string, any[]> = {
   "ZAL": [
     { id: 1, name: "Zal 1", status: "empty" },
     { id: 2, name: "Zal 2", status: "empty" },
@@ -82,20 +85,61 @@ const allTables: Record<string, any[]> = {
     { id: 25, name: "Zal-2 5", status: "empty" },
     { id: 26, name: "Zal-2 6", status: "empty" },
   ],
+  "TERRASA": [
+    { id: 31, name: "Terrasa 1", status: "empty" },
+    { id: 32, name: "Terrasa 2", status: "empty" },
+    { id: 33, name: "Terrasa 3", status: "occupied", amount: "250.00 UZS", user: "Jasur", time: "19:15" },
+  ],
+  "BOG'": [
+    { id: 41, name: "Bog' 1", status: "empty" },
+    { id: 42, name: "Bog' 2", status: "empty" },
+  ]
 };
 
 export default function AdminPage() {
   const [activeCategory, setActiveCategory] = useState("BARCHA STOLLAR");
+  
+  const [tablesState, setTablesState] = useState(initialTables);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newNum, setNewNum] = useState("");
+  const [newBarcode, setNewBarcode] = useState("");
+  const [newColor, setNewColor] = useState("#ffffff");
+  const [newCategory, setNewCategory] = useState("ZAL");
 
   const displayedTables = React.useMemo(() => {
     if (activeCategory === 'BARCHA STOLLAR') {
-      return Object.values(allTables).flat();
+      return Object.values(tablesState).flat();
     }
     if (activeCategory === 'BAND STOLLAR') {
-      return Object.values(allTables).flat().filter(t => t.status !== 'empty');
+      return Object.values(tablesState).flat().filter(t => t.status !== 'empty');
     }
-    return allTables[activeCategory] || [];
-  }, [activeCategory]);
+    return tablesState[activeCategory] || [];
+  }, [activeCategory, tablesState]);
+
+  const handleAddTable = () => {
+    if(!newName) return;
+    const newTable = {
+      id: Date.now(),
+      name: newName,
+      number: newNum,
+      barcode: newBarcode,
+      color: newColor,
+      status: "empty"
+    };
+    
+    setTablesState(prev => ({
+      ...prev,
+      [newCategory]: [...(prev[newCategory] || []), newTable]
+    }));
+    
+    setIsModalVisible(false);
+    setNewName("");
+    setNewNum("");
+    setNewBarcode("");
+    setNewColor("#ffffff");
+    setNewCategory("ZAL");
+  };
 
   // Determine number of columns for grid
   const mainWidth = width - 80 - 320 - 140; // Total width minus sidebars
@@ -212,25 +256,44 @@ export default function AdminPage() {
 
         {/* Center Tables Grid */}
         <View style={styles.tablesPanel}>
-          <View style={styles.tablesHeader}>
+          <View style={[styles.tablesHeader, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
             <Text style={styles.tablesHeaderBread}>Qavatlar &gt; <Text style={styles.tablesHeaderActive}>{activeCategory}</Text></Text>
+            <TouchableOpacity 
+              style={styles.addTableBtn} 
+              onPress={() => {
+                if (['ZAL', 'ZAL 2', 'TERRASA', 'BOG\''].includes(activeCategory)) {
+                  setNewCategory(activeCategory);
+                } else {
+                  setNewCategory('ZAL');
+                }
+                setIsModalVisible(true);
+              }}
+            >
+              <Plus size={16} color="#fff" />
+              <Text style={styles.addTableBtnText}>Stol qo'shish</Text>
+            </TouchableOpacity>
           </View>
           <ScrollView contentContainerStyle={styles.tablesGrid}>
             {displayedTables.map((t, idx) => {
-              const bgColors = t.status === 'occupied' ? ['#ff4081', '#c2185b'] 
+              const customColor = t.color && t.color !== '#ffffff' ? t.color : null;
+              const bgColors = customColor ? [customColor, customColor] :
+                           t.status === 'occupied' ? ['#ff4081', '#c2185b'] 
                          : t.status === 'reserved' ? ['#e6b12a', '#d4a324']
                          : t.status === 'special' ? ['#5c6bc0', '#3f51b5']
                          : ['#ffffff', '#ffffff'];
               
-              const textColor = t.status === 'empty' ? '#666' : '#fff';
+              const isDark = customColor && customColor !== '#ffffff';
+              const textColor = t.status === 'empty' && !isDark ? '#666' : '#fff';
 
               return (
                 <TouchableOpacity key={idx} style={[styles.tableCardContainer, { width: cardWidth }]}>
                   <LinearGradient 
-                    colors={bgColors}
+                    colors={bgColors as [string, string]}
                     style={styles.tableCard}
                   >
                     <Text style={[styles.tableName, { color: textColor }]}>{t.name}</Text>
+                    {t.number ? <Text style={{fontSize: 10, color: textColor, opacity: 0.8}}>№: {t.number}</Text> : null}
+                    {t.barcode ? <Text style={{fontSize: 9, color: textColor, opacity: 0.6}}>Kod: {t.barcode}</Text> : null}
                     
                     {t.status === 'empty' ? (
                       <Text style={[styles.tableStatus, { color: '#aaa' }]}>Bo'sh</Text>
@@ -266,11 +329,10 @@ export default function AdminPage() {
         {/* Right Categories */}
         <View style={styles.catsPanel}>
           <Text style={styles.catsHeader}>STOLLAR</Text>
-          {['BARCHA STOLLAR', 'BAND STOLLAR', 'ZAL', 'ZAL 2'].map(cat => (
+          {['BARCHA STOLLAR', 'BAND STOLLAR', 'ZAL', 'ZAL 2', 'TERRASA', 'BOG\''].map(cat => (
             <TouchableOpacity 
               key={cat} 
               style={[styles.catBtn, activeCategory === cat && styles.catBtnActive]}
-              onClick={() => setActiveCategory(cat)}
               onPress={() => setActiveCategory(cat)}
             >
               <Text style={[styles.catBtnText, activeCategory === cat && styles.catBtnTextActive]}>
@@ -281,6 +343,57 @@ export default function AdminPage() {
         </View>
 
       </View>
+
+      {/* Modal */}
+      <Modal visible={isModalVisible} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Yangi stol qo'shish</Text>
+
+            <Text style={styles.inputLabel}>Bo'limni tanlang</Text>
+            <View style={styles.catPickerRow}>
+              {['ZAL', 'ZAL 2', 'TERRASA', 'BOG\''].map(cat => (
+                <TouchableOpacity 
+                  key={cat} 
+                  style={[styles.modalCatBtn, newCategory === cat && styles.modalCatBtnActive]} 
+                  onPress={() => setNewCategory(cat)} 
+                >
+                  <Text style={[styles.modalCatBtnText, newCategory === cat && styles.modalCatBtnTextActive]}>{cat}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.inputLabel}>Stol nomi</Text>
+            <TextInput style={styles.input} value={newName} onChangeText={setNewName} placeholder="Masalan: Zal 15" placeholderTextColor="#999" />
+
+            <Text style={styles.inputLabel}>Raqami</Text>
+            <TextInput style={styles.input} value={newNum} onChangeText={setNewNum} placeholder="Masalan: 15" keyboardType="numeric" placeholderTextColor="#999" />
+
+            <Text style={styles.inputLabel}>Shtrix kodi</Text>
+            <TextInput style={styles.input} value={newBarcode} onChangeText={setNewBarcode} placeholder="Masalan: 123456789" keyboardType="numeric" placeholderTextColor="#999" />
+
+            <Text style={styles.inputLabel}>Rangi</Text>
+            <View style={styles.colorPickerRow}>
+              {['#ffffff', '#ff4081', '#e6b12a', '#5c6bc0', '#4caf50', '#9c27b0'].map(c => (
+                <TouchableOpacity 
+                  key={c} 
+                  style={[styles.colorCircle, { backgroundColor: c }, newColor === c && styles.colorCircleActive]} 
+                  onPress={() => setNewColor(c)} 
+                />
+              ))}
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setIsModalVisible(false)}>
+                <Text style={styles.modalCancelBtnText}>Bekor qilish</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalAddBtn} onPress={handleAddTable}>
+                <Text style={styles.modalAddBtnText}>Qo'shish</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -510,6 +623,20 @@ const styles = StyleSheet.create({
     color: '#333',
     fontWeight: '600',
   },
+  addTableBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#e91e63',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 6,
+  },
+  addTableBtnText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
+  },
   tablesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -602,5 +729,112 @@ const styles = StyleSheet.create({
   },
   catBtnTextActive: {
     color: '#333',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  modalContent: {
+    width: 320,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 5
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    color: '#333'
+  },
+  inputLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 5,
+    fontWeight: '600'
+  },
+  input: {
+    backgroundColor: '#f5f5f5',
+    borderWidth: 1,
+    borderColor: '#eee',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 15,
+    color: '#333',
+    fontSize: 14
+  },
+  catPickerRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 15
+  },
+  modalCatBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#f5f5f5',
+    borderWidth: 1,
+    borderColor: '#eee'
+  },
+  modalCatBtnActive: {
+    backgroundColor: '#e91e63',
+    borderColor: '#e91e63'
+  },
+  modalCatBtnText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#666'
+  },
+  modalCatBtnTextActive: {
+    color: '#fff'
+  },
+  colorPickerRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 25
+  },
+  colorCircle: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: '#ddd'
+  },
+  colorCircleActive: {
+    borderWidth: 3,
+    borderColor: '#333'
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10
+  },
+  modalCancelBtn: {
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#f5f5f5'
+  },
+  modalCancelBtnText: {
+    color: '#666',
+    fontWeight: 'bold'
+  },
+  modalAddBtn: {
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#e91e63'
+  },
+  modalAddBtnText: {
+    color: '#fff',
+    fontWeight: 'bold'
   }
 });
