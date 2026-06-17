@@ -24,7 +24,8 @@ import {
   Server, 
   User,
   MoreHorizontal,
-  Clock
+  Clock,
+  History
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -38,7 +39,7 @@ const initialOrders = [
   { id: 1, table: "Stol 2", time: "16:26", amount: "115,00 UZS" },
 ];
 
-const allTables: Record<string, any[]> = {
+export const allTables: Record<string, any[]> = {
   "ZAL": [
     { id: 1, name: "Stol 1", status: "empty" },
     { id: 2, name: "Stol 2", status: "empty" },
@@ -149,8 +150,8 @@ export default function AdminPage() {
         {/* Left Toolbar */}
         <View style={styles.toolbar}>
           {[
-            { icon: Barcode, text: 'Shtrix-kod', action: () => showModal("Shtrix-kod", "Shtrix-kod skaneri ishga tushirildi.") },
-            { icon: Edit, text: 'Tahrirlash', action: () => showModal("Tahrirlash", "Tahrirlash rejimi yoqildi.") },
+            { icon: Barcode, text: 'Shtrix-kod', action: () => router.push('/barcodes') },
+            { icon: History, text: 'Tarix', action: () => router.push('/history') },
             { icon: X, text: 'Bekor qilish', action: () => { setOrdersList([]); showModal("Bekor qilish", "Barcha buyurtmalar bekor qilindi."); } },
             { icon: Package, text: 'Dastavka', action: () => router.push('/delivery') },
             { icon: FileText, text: 'Eslatmalar', action: () => router.push('/orders') },
@@ -284,14 +285,8 @@ export default function AdminPage() {
       <Modal visible={menuVisible} transparent={true} animationType="fade" onRequestClose={() => setMenuVisible(false)}>
         <TouchableOpacity style={styles.dropdownOverlay} activeOpacity={1} onPress={() => setMenuVisible(false)}>
           <View style={styles.dropdownMenu}>
-            <TouchableOpacity style={styles.dropdownItem} onPress={() => { setMenuVisible(false); showModal("Sozlamalar", "Sozlamalar bo'limi tanlandi."); }}>
+            <TouchableOpacity style={[styles.dropdownItem, { borderBottomWidth: 0 }]} onPress={() => { setMenuVisible(false); showModal("Sozlamalar", "Sozlamalar bo'limi tanlandi."); }}>
               <Text style={styles.dropdownItemText}>⚙️ Sozlamalar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.dropdownItem} onPress={() => { setMenuVisible(false); showModal("Hisobotlar", "Hisobotlar bo'limi tanlandi."); }}>
-              <Text style={styles.dropdownItemText}>📊 Hisobotlar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.dropdownItem, { borderBottomWidth: 0 }]} onPress={() => { setMenuVisible(false); showModal("Yordam", "Yordam bo'limi tanlandi."); }}>
-              <Text style={styles.dropdownItemText}>❓ Yordam</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
