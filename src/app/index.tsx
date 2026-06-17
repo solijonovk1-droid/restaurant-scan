@@ -30,7 +30,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 
 // Mock Data (Translated to Uzbek)
-const orders = [
+const initialOrders = [
   { id: 5, table: "Stol 8", time: "17:43", amount: "156,00 UZS" },
   { id: 4, table: "Stol 10", time: "17:25", amount: "269,00 UZS" },
   { id: 3, table: "Stol 6", time: "17:14", amount: "177,00 UZS" },
@@ -79,7 +79,9 @@ const allTables: Record<string, any[]> = {
 export default function AdminPage() {
   const [activeCategory, setActiveCategory] = useState("BARCHA STOLLAR");
   const [modalVisible, setModalVisible] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
   const [modalContent, setModalContent] = useState({ title: '', message: '' });
+  const [ordersList, setOrdersList] = useState(initialOrders);
   const { width } = useWindowDimensions();
   const router = useRouter();
 
@@ -121,34 +123,15 @@ export default function AdminPage() {
             <ChevronLeft size={24} color="#fff" />
             <Text style={styles.logoText}>MENULUX <Text style={styles.logoTextLight}>Pos</Text></Text>
           </TouchableOpacity>
-          <View style={styles.headerActions}>
-            <Text style={styles.masalarText}>STOLLAR</Text>
-            <TouchableOpacity style={styles.bellBtn} onPress={() => showModal("Bildirishnomalar", "Yangi bildirishnomalar yo'q.")}>
-              <Bell size={18} color="#fff" />
-              <View style={styles.badge}><Text style={styles.badgeText}>12</Text></View>
-            </TouchableOpacity>
-          </View>
+
         </View>
         
         {width > 600 && (
           <View style={styles.headerRight}>
-            <TouchableOpacity style={styles.iconBtn} onPress={() => showModal("Qo'shimcha", "Qo'shimcha menyu ochildi.")}>
+            <TouchableOpacity style={styles.iconBtn} onPress={() => setMenuVisible(true)}>
               <MoreHorizontal size={18} color="#fff" />
             </TouchableOpacity>
-            <View style={styles.statusItem}>
-              <Wifi size={16} color="#a5d6a7" />
-              <View>
-                <Text style={styles.statusLabel}>Internet</Text>
-                <Text style={styles.statusValue}>ULANGAN</Text>
-              </View>
-            </View>
-            <View style={styles.statusItem}>
-              <Server size={16} color="#a5d6a7" />
-              <View>
-                <Text style={styles.statusLabel}>Server</Text>
-                <Text style={styles.statusValue}>ULANGAN</Text>
-              </View>
-            </View>
+
             <TouchableOpacity style={styles.userProfile} onPress={() => showModal("Profil", "Foydalanuvchi profili ochildi.")}>
               <User size={20} color="#fff" />
               <View>
@@ -168,8 +151,8 @@ export default function AdminPage() {
           {[
             { icon: Barcode, text: 'Shtrix-kod', action: () => showModal("Shtrix-kod", "Shtrix-kod skaneri ishga tushirildi.") },
             { icon: Edit, text: 'Tahrirlash', action: () => showModal("Tahrirlash", "Tahrirlash rejimi yoqildi.") },
-            { icon: X, text: 'Bekor qilish', action: () => showModal("Bekor qilish", "Amaliyot bekor qilindi.") },
-            { icon: Package, text: 'Dastavka', action: () => showModal("Dastavka", "Dastavka bo'limi ochildi.") },
+            { icon: X, text: 'Bekor qilish', action: () => { setOrdersList([]); showModal("Bekor qilish", "Barcha buyurtmalar bekor qilindi."); } },
+            { icon: Package, text: 'Dastavka', action: () => router.push('/delivery') },
             { icon: FileText, text: 'Eslatmalar', action: () => router.push('/orders') },
             { icon: MoveRight, text: 'Ko\'chirish', action: () => showModal("Ko'chirish", "Stolni ko'chirish bo'limi ochildi.") }
           ].map((item, i) => (
@@ -183,10 +166,10 @@ export default function AdminPage() {
         {/* Orders Panel */}
         <View style={styles.ordersPanel}>
           <View style={styles.ordersHeader}>
-            <Text style={styles.ordersHeaderText}>5 BUYURTMA</Text>
+            <Text style={styles.ordersHeaderText}>{ordersList.length} BUYURTMA</Text>
           </View>
           <ScrollView style={styles.ordersList}>
-            {orders.map((o) => (
+            {ordersList.map((o) => (
               <TouchableOpacity key={o.id} style={styles.orderItem} onPress={() => showModal("Buyurtma", `Buyurtma ${o.id} (${o.table}) tanlandi.`)}>
                 <View style={styles.orderBadge}>
                   <Text style={styles.orderBadgeText}>{o.id}</Text>
@@ -201,7 +184,7 @@ export default function AdminPage() {
           </ScrollView>
           <View style={styles.ordersFooter}>
             <Text style={styles.ordersFooterLabel}>JAMI</Text>
-            <Text style={styles.ordersFooterPrice}>1.362,00 UZS</Text>
+            <Text style={styles.ordersFooterPrice}>{ordersList.length > 0 ? "1.362,00 UZS" : "0,00 UZS"}</Text>
           </View>
         </View>
 
@@ -297,6 +280,23 @@ export default function AdminPage() {
         </View>
       </Modal>
 
+      {/* Dropdown Menu Modal */}
+      <Modal visible={menuVisible} transparent={true} animationType="fade" onRequestClose={() => setMenuVisible(false)}>
+        <TouchableOpacity style={styles.dropdownOverlay} activeOpacity={1} onPress={() => setMenuVisible(false)}>
+          <View style={styles.dropdownMenu}>
+            <TouchableOpacity style={styles.dropdownItem} onPress={() => { setMenuVisible(false); showModal("Sozlamalar", "Sozlamalar bo'limi tanlandi."); }}>
+              <Text style={styles.dropdownItemText}>⚙️ Sozlamalar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.dropdownItem} onPress={() => { setMenuVisible(false); showModal("Hisobotlar", "Hisobotlar bo'limi tanlandi."); }}>
+              <Text style={styles.dropdownItemText}>📊 Hisobotlar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.dropdownItem, { borderBottomWidth: 0 }]} onPress={() => { setMenuVisible(false); showModal("Yordam", "Yordam bo'limi tanlandi."); }}>
+              <Text style={styles.dropdownItemText}>❓ Yordam</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
     </View>
   );
 }
@@ -364,5 +364,9 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 16, fontWeight: 'bold', color: '#120e1f', marginBottom: 10 },
   modalMessage: { fontSize: 14, color: '#495057', textAlign: 'center', marginBottom: 20 },
   modalButton: { backgroundColor: '#e91e63', paddingVertical: 8, paddingHorizontal: 20, borderRadius: 8 },
-  modalButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 14 }
+  modalButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
+  dropdownOverlay: { flex: 1, backgroundColor: 'transparent' },
+  dropdownMenu: { position: 'absolute', top: 50, right: 150, backgroundColor: '#fff', borderRadius: 8, elevation: 5, shadowColor: '#000', shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.25, shadowRadius: 3.84, minWidth: 160 },
+  dropdownItem: { padding: 15, borderBottomWidth: 1, borderBottomColor: '#f1f3f5' },
+  dropdownItemText: { fontSize: 14, color: '#343a40', fontWeight: '500' }
 });
