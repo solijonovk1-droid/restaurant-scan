@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -9,10 +9,11 @@ import {
   Platform,
   StatusBar,
   Alert,
-  Modal
+  Modal,
+  TextInput
 } from 'react-native';
 import { 
-  Barcode, 
+  QrCode, 
   Edit, 
   X, 
   Package, 
@@ -25,10 +26,12 @@ import {
   User,
   MoreHorizontal,
   Clock,
-  History
+  History,
+  Plus
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Mock Data (Translated to Uzbek)
 const initialOrders = [
@@ -65,15 +68,6 @@ export const allTables: Record<string, any[]> = {
     { id: 24, name: "Stol-2 4", status: "empty" },
     { id: 25, name: "Stol-2 5", status: "empty" },
     { id: 26, name: "Stol-2 6", status: "empty" },
-  ],
-  "TERRASA": [
-    { id: 31, name: "Terrasa 1", status: "empty" },
-    { id: 32, name: "Terrasa 2", status: "empty" },
-    { id: 33, name: "Terrasa 3", status: "occupied", amount: "250.00 UZS", user: "Jasur", time: "19:15" },
-  ],
-  "BOG'": [
-    { id: 41, name: "Bog' 1", status: "empty" },
-    { id: 42, name: "Bog' 2", status: "empty" },
   ]
 };
 
@@ -83,8 +77,29 @@ export default function AdminPage() {
   const [menuVisible, setMenuVisible] = useState(false);
   const [modalContent, setModalContent] = useState({ title: '', message: '' });
   const [ordersList, setOrdersList] = useState(initialOrders);
+  const [tablesData, setTablesData] = useState(allTables);
+  const [addTableVisible, setAddTableVisible] = useState(false);
+  const [newTableName, setNewTableName] = useState("");
+  const [newTableSeats, setNewTableSeats] = useState("");
+  const [newTableBarcode, setNewTableBarcode] = useState("");
   const { width } = useWindowDimensions();
   const router = useRouter();
+
+  useEffect(() => {
+    const loadTables = async () => {
+      try {
+        const stored = await AsyncStorage.getItem('savedTables');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          setTablesData(parsed);
+          Object.assign(allTables, parsed);
+        }
+      } catch (error) {
+        console.error("Error loading tables:", error);
+      }
+    };
+    loadTables();
+  }, []);
 
   const showModal = (title: string, message: string) => {
     setModalContent({ title, message });
@@ -93,13 +108,16 @@ export default function AdminPage() {
 
   const displayedTables = React.useMemo(() => {
     if (activeCategory === 'BARCHA STOLLAR') {
-      return Object.values(allTables).flat();
+      return Object.values(tablesData).flat();
     }
     if (activeCategory === 'BAND STOLLAR') {
-      return Object.values(allTables).flat().filter(t => t.status !== 'empty');
+      return Object.values(tablesData).flat().filter(t => t.status !== 'empty');
     }
-    return allTables[activeCategory] || [];
-  }, [activeCategory]);
+    if (activeCategory === 'BO\'SH STOLLAR') {
+      return Object.values(tablesData).flat().filter(t => t.status === 'empty');
+    }
+    return tablesData[activeCategory] || [];
+  }, [activeCategory, tablesData]);
 
   // Determine number of columns for grid
   const sidebarWidth = 55;
@@ -150,7 +168,7 @@ export default function AdminPage() {
         {/* Left Toolbar */}
         <View style={styles.toolbar}>
           {[
-            { icon: Barcode, text: 'Shtrix-kod', action: () => router.push('/barcodes') },
+            { icon: QrCode, text: 'QR-kod', action: () => router.push('/barcodes') },
             { icon: History, text: 'Tarix', action: () => router.push('/history') },
             { icon: X, text: 'Bekor qilish', action: () => { setOrdersList([]); showModal("Bekor qilish", "Barcha buyurtmalar bekor qilindi."); } },
             { icon: Package, text: 'Dastavka', action: () => router.push('/delivery') },
@@ -191,8 +209,14 @@ export default function AdminPage() {
 
         {/* Center Tables Grid */}
         <View style={styles.tablesPanel}>
-          <View style={styles.tablesHeader}>
+          <View style={[styles.tablesHeader, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
             <Text style={styles.tablesHeaderBread}>Qavatlar &gt; <Text style={styles.tablesHeaderActive}>{activeCategory === 'BARCHA STOLLAR' ? 'Asosiy Zal' : activeCategory}</Text></Text>
+            {activeCategory === 'BARCHA STOLLAR' && (
+              <TouchableOpacity style={[styles.newTableBtn, { backgroundColor: '#e91e63' }]} onPress={() => setAddTableVisible(true)}>
+                <Plus size={16} color="#fff" />
+                <Text style={styles.newTableBtnText}>Yangi stol</Text>
+              </TouchableOpacity>
+            )}
           </View>
           <ScrollView contentContainerStyle={styles.tablesGrid}>
             {displayedTables.map((t, idx) => {
@@ -246,7 +270,7 @@ export default function AdminPage() {
         {/* Right Categories */}
         <View style={styles.catsPanel}>
           <Text style={styles.catsHeader}>STOLLAR</Text>
-          {['BARCHA STOLLAR', 'BAND STOLLAR', 'ZAL', 'ZAL 2', 'TERRASA', 'BOG\''].map(cat => (
+          {['BARCHA STOLLAR', 'BAND STOLLAR', 'BO\'SH STOLLAR'].map(cat => (
             <TouchableOpacity 
               key={cat} 
               style={[styles.catBtn, activeCategory === cat && styles.catBtnActive]}
@@ -281,6 +305,82 @@ export default function AdminPage() {
         </View>
       </Modal>
 
+      {/* Add Table Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={addTableVisible}
+        onRequestClose={() => setAddTableVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Yangi stol qo'shish</Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder="Stol nomi"
+              value={newTableName}
+              onChangeText={setNewTableName}
+            />
+            <TextInput
+              style={[styles.textInput, { marginTop: 10 }]}
+              placeholder="Stol soni (odam sig'imi)"
+              value={newTableSeats}
+              onChangeText={setNewTableSeats}
+              keyboardType="numeric"
+            />
+            <TextInput
+              style={[styles.textInput, { marginTop: 10 }]}
+              placeholder="QR-kod"
+              value={newTableBarcode}
+              onChangeText={setNewTableBarcode}
+            />
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 20 }}>
+              <TouchableOpacity 
+                style={[styles.modalButton, { backgroundColor: '#adb5bd' }]} 
+                onPress={() => setAddTableVisible(false)}
+              >
+                <Text style={styles.modalButtonText}>Bekor qilish</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.modalButton} 
+                onPress={() => {
+                  if (newTableName.trim()) {
+                    const newTable = { 
+                      id: Date.now(), 
+                      name: newTableName, 
+                      status: "empty",
+                      people: newTableSeats ? parseInt(newTableSeats) : undefined,
+                      barcode: newTableBarcode || undefined
+                    };
+                    
+                    // Mutate global object so barcodes page can see the new table
+                    allTables["ZAL"].push(newTable);
+
+                    setTablesData(prev => {
+                      const newData = {
+                        ...prev,
+                        "ZAL": [
+                          ...prev["ZAL"],
+                          newTable
+                        ]
+                      };
+                      AsyncStorage.setItem('savedTables', JSON.stringify(newData)).catch(err => console.error(err));
+                      return newData;
+                    });
+                    setNewTableName("");
+                    setNewTableSeats("");
+                    setNewTableBarcode("");
+                    setAddTableVisible(false);
+                  }
+                }}
+              >
+                <Text style={styles.modalButtonText}>Qo'shish</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Dropdown Menu Modal */}
       <Modal visible={menuVisible} transparent={true} animationType="fade" onRequestClose={() => setMenuVisible(false)}>
         <TouchableOpacity style={styles.dropdownOverlay} activeOpacity={1} onPress={() => setMenuVisible(false)}>
@@ -309,6 +409,8 @@ const styles = StyleSheet.create({
   badge: { position: 'absolute', top: -4, right: -4, backgroundColor: '#fff', borderRadius: 8, paddingHorizontal: 3, minWidth: 14, alignItems: 'center' },
   badgeText: { color: '#e91e63', fontSize: 9, fontWeight: '800' },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  newTableBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
+  newTableBtnText: { color: '#fff', fontSize: 11, fontWeight: '600' },
   iconBtn: { backgroundColor: 'rgba(255,255,255,0.15)', padding: 5, borderRadius: 15 },
   statusItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   statusLabel: { color: '#eee', fontSize: 8 },
@@ -363,5 +465,6 @@ const styles = StyleSheet.create({
   dropdownOverlay: { flex: 1, backgroundColor: 'transparent' },
   dropdownMenu: { position: 'absolute', top: 50, right: 150, backgroundColor: '#fff', borderRadius: 8, elevation: 5, shadowColor: '#000', shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.25, shadowRadius: 3.84, minWidth: 160 },
   dropdownItem: { padding: 15, borderBottomWidth: 1, borderBottomColor: '#f1f3f5' },
-  dropdownItemText: { fontSize: 14, color: '#343a40', fontWeight: '500' }
+  dropdownItemText: { fontSize: 14, color: '#343a40', fontWeight: '500' },
+  textInput: { width: '100%', borderWidth: 1, borderColor: '#dee2e6', borderRadius: 8, padding: 10, fontSize: 14, color: '#212529' }
 });
