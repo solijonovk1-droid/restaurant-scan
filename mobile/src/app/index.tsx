@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,9 +7,7 @@ import {
   ScrollView,
   useWindowDimensions,
   StatusBar,
-  Modal,
-  TextInput,
-  Alert
+  Modal
 } from 'react-native';
 import {
   Barcode,
@@ -25,12 +23,9 @@ import {
   Utensils,
   Coffee,
   CheckCircle,
-  Plus,
-  QrCode
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ─── Har bir stol uchun buyurtma ma'lumotlari ───────────────────────────────
 const tableOrdersData: Record<number, { name: string; qty: number; price: number; unit: string }[]> = {
@@ -161,32 +156,6 @@ export default function AdminPage() {
   const { width } = useWindowDimensions();
   const router    = useRouter();
 
-  const [tablesData, setTablesData] = useState(allTables);
-  const [addTableVisible, setAddTableVisible] = useState(false);
-  const [newTableName, setNewTableName] = useState("");
-  const [newTableSeats, setNewTableSeats] = useState("");
-  const [newTableBarcode, setNewTableBarcode] = useState("");
-
-  // ── Persistence ──
-  useEffect(() => {
-    const loadTables = async () => {
-      try {
-        const stored = await AsyncStorage.getItem('savedTables');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          setTablesData(parsed);
-          // Sync with global object for other pages
-          Object.keys(parsed).forEach(key => {
-            allTables[key] = parsed[key];
-          });
-        }
-      } catch (error) {
-        console.error("Error loading tables:", error);
-      }
-    };
-    loadTables();
-  }, [tableRefresh]);
-
   // ── Oddiy xabar modali ──
   const [infoModal, setInfoModal]   = useState(false);
   const [infoContent, setInfoContent] = useState({ title: '', message: '' });
@@ -239,26 +208,22 @@ export default function AdminPage() {
         ? { ...t, status: 'empty', user: undefined, time: undefined, people: undefined, subStatus: undefined, hasClock: false }
         : t
     );
-    allTables[zone] = updated;
+    (allTables as any)[zone] = updated;
 
     // buyurtmalar panelidan o'chiramiz
     const tableName = billTable?.name ?? '';
     setOrdersList(prev => prev.filter(o => o.table !== tableName));
-    
-    // Save to storage
-    AsyncStorage.setItem('savedTables', JSON.stringify(allTables)).catch(err => console.error(err));
-    
     setTableRefresh(prev => prev + 1);
     setBillModal(false);
   };
 
   // ── Ko'rsatiladigan stollar ──────────────────────────────────────────────
   const displayedTables = React.useMemo(() => {
-    if (activeCategory === 'BARCHA STOLLAR') return Object.values(tablesData).flat();
-    if (activeCategory === 'BAND STOLLAR')   return Object.values(tablesData).flat().filter(t => t.status !== 'empty');
-    if (activeCategory === "BO'SH STOLLAR")  return Object.values(tablesData).flat().filter(t => t.status === 'empty');
-    return tablesData[activeCategory] ?? [];
-  }, [activeCategory, tablesData, tableRefresh]);
+    if (activeCategory === 'BARCHA STOLLAR') return Object.values(allTables).flat();
+    if (activeCategory === 'BAND STOLLAR')   return Object.values(allTables).flat().filter(t => t.status !== 'empty');
+    return allTables[activeCategory] ?? [];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCategory, tableRefresh]);
 
   // ── Stol karta ──────────────────────────────────────────────────────────
   const renderTableCard = (t: any, idx: number) => {
@@ -363,7 +328,7 @@ export default function AdminPage() {
         {/* Left Toolbar */}
         <View style={styles.toolbar}>
           {[
-            { icon: QrCode,     text: "QR-kod", action: () => router.push('/barcodes') },
+            { icon: Barcode,   text: "Shtrix-kod", action: () => router.push('/barcodes') },
             { icon: History,   text: 'Tarix',       action: () => router.push('/history') },
             { icon: X,         text: 'Bekor',        action: () => { setOrdersList([]); showInfo('Bekor qilish', 'Barcha buyurtmalar bekor qilindi.'); } },
             { icon: Package,   text: 'Dastavka',     action: () => router.push('/delivery') },
@@ -461,19 +426,13 @@ export default function AdminPage() {
 
         {/* Center Tables Grid */}
         <View style={styles.tablesPanel}>
-          <View style={[styles.tablesHeader, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
+          <View style={styles.tablesHeader}>
             <Text style={styles.tablesHeaderBread}>
               Qavatlar &gt;{' '}
               <Text style={styles.tablesHeaderActive}>
                 {activeCategory === 'BARCHA STOLLAR' ? 'Asosiy Zal' : activeCategory}
               </Text>
             </Text>
-            {activeCategory === 'BARCHA STOLLAR' && (
-              <TouchableOpacity style={styles.newTableBtn} onPress={() => setAddTableVisible(true)}>
-                <Plus size={16} color="#fff" />
-                <Text style={styles.newTableBtnText}>Yangi stol</Text>
-              </TouchableOpacity>
-            )}
           </View>
           <ScrollView contentContainerStyle={styles.tablesGrid}>
             {displayedTables.map((t, idx) => renderTableCard(t, idx))}
@@ -483,7 +442,7 @@ export default function AdminPage() {
         {/* Right Categories */}
         <View style={styles.catsPanel}>
           <Text style={styles.catsHeader}>STOLLAR</Text>
-          {["BARCHA STOLLAR", "BAND STOLLAR", "BO'SH STOLLAR", "ZAL", "ZAL 2", "TERRASA", "BOG'"].map(cat => (
+          {["BARCHA STOLLAR", "BAND STOLLAR", "ZAL", "ZAL 2", "TERRASA", "BOG'"].map(cat => (
             <TouchableOpacity
               key={cat}
               style={[styles.catBtn, activeCategory === cat && styles.catBtnActive]}
@@ -580,74 +539,6 @@ export default function AdminPage() {
         </View>
       </Modal>
 
-      {/* Add Table Modal */}
-      <Modal animationType="fade" transparent visible={addTableVisible} onRequestClose={() => setAddTableVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Yangi stol qo'shish</Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="Stol nomi"
-              value={newTableName}
-              onChangeText={setNewTableName}
-            />
-            <TextInput
-              style={[styles.textInput, { marginTop: 10 }]}
-              placeholder="Stol soni (odam sig'imi)"
-              value={newTableSeats}
-              onChangeText={setNewTableSeats}
-              keyboardType="numeric"
-            />
-            <TextInput
-              style={[styles.textInput, { marginTop: 10 }]}
-              placeholder="QR-kod"
-              value={newTableBarcode}
-              onChangeText={setNewTableBarcode}
-            />
-            <View style={{ flexDirection: 'row', gap: 10, marginTop: 20 }}>
-              <TouchableOpacity 
-                style={[styles.modalButton, { backgroundColor: '#adb5bd' }]} 
-                onPress={() => setAddTableVisible(false)}
-              >
-                <Text style={styles.modalButtonText}>Bekor qilish</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.modalButton} 
-                onPress={() => {
-                  if (newTableName.trim()) {
-                    const newTable = { 
-                      id: Date.now(), 
-                      name: newTableName.trim(), 
-                      status: "empty",
-                      people: newTableSeats ? parseInt(newTableSeats) : undefined,
-                      barcode: newTableBarcode || undefined
-                    };
-                    
-                    const newData = {
-                      ...allTables,
-                      "ZAL": [...allTables["ZAL"], newTable]
-                    };
-                    
-                    // Update main state and sync with allTables
-                    Object.keys(newData).forEach(key => allTables[key] = newData[key]);
-                    setTablesData(newData);
-                    
-                    AsyncStorage.setItem('savedTables', JSON.stringify(newData)).catch(err => console.error(err));
-                    
-                    setNewTableName("");
-                    setNewTableSeats("");
-                    setNewTableBarcode("");
-                    setAddTableVisible(false);
-                  }
-                }}
-              >
-                <Text style={styles.modalButtonText}>Qo'shish</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
       {/* ── DROPDOWN MENU ───────────────────────────────────────────────── */}
       <Modal visible={menuVisible} transparent animationType="fade" onRequestClose={() => setMenuVisible(false)}>
         <TouchableOpacity style={styles.dropdownOverlay} activeOpacity={1} onPress={() => setMenuVisible(false)}>
@@ -674,8 +565,6 @@ const styles = StyleSheet.create({
   logoText: { color: '#fff', fontSize: 14, fontWeight: '700', letterSpacing: 0.5 },
   logoTextLight: { fontWeight: '300' },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  newTableBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
-  newTableBtnText: { color: '#fff', fontSize: 11, fontWeight: '600' },
   iconBtn: { backgroundColor: 'rgba(255,255,255,0.15)', padding: 5, borderRadius: 15 },
   userProfile: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   userName: { color: '#fff', fontWeight: 'bold', fontSize: 11 },
@@ -807,5 +696,4 @@ const styles = StyleSheet.create({
   dropdownMenu: { position: 'absolute', top: 50, right: 150, backgroundColor: '#fff', borderRadius: 8, elevation: 5, minWidth: 160 },
   dropdownItem: { padding: 15, borderBottomWidth: 1, borderBottomColor: '#f1f3f5' },
   dropdownItemText: { fontSize: 14, color: '#343a40', fontWeight: '500' },
-  textInput: { width: '100%', borderWidth: 1, borderColor: '#dee2e6', borderRadius: 8, padding: 10, fontSize: 14, color: '#212529' }
 });
