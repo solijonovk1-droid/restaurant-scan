@@ -1,18 +1,66 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Image, Platform, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Image, Platform, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ChevronLeft, Printer } from 'lucide-react-native';
+import { ChevronLeft, Printer, ExternalLink } from 'lucide-react-native';
 import * as Print from 'expo-print';
-import { allTables } from './index';
+import * as Linking from 'expo-linking';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function BarcodesPage() {
   const router = useRouter();
+  const [tables, setTables] = useState<any[]>([]);
+  const [accountId, setAccountId] = useState<string>("");
+  const [loading, setLoading] = useState(true);
 
-  // Barcha stollarni bitta arrayga yig'ib olamiz
-  const tables = Object.values(allTables).flat();
+  useEffect(() => {
+    const checkAuthAndLoad = async () => {
+      try {
+        const savedAccId = await AsyncStorage.getItem('currentAccountId');
+        if (!savedAccId) {
+          router.replace('/login');
+          return;
+        }
+        setAccountId(savedAccId);
 
-  const handlePrint = async (tableName: string, qrValue: string) => {
-    const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrValue)}`;
+        const storedTables = await AsyncStorage.getItem(`savedTables_${savedAccId}`);
+        if (storedTables) {
+          const parsed = JSON.parse(storedTables);
+          setTables(Object.values(parsed).flat());
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    checkAuthAndLoad();
+  }, []);
+
+  // Dinamik ravishda mijoz menusi URL manzilini yaratamiz
+  const getQrUrl = (tableId: number | string) => {
+    if (Platform.OS === 'web') {
+      return `${window.location.origin}/menu?accountId=${accountId}&tableId=${tableId}`;
+    }
+    // Mobile/Native uchun deep link
+    return Linking.createURL('/menu', {
+      queryParams: { 
+        accountId,
+        tableId: tableId.toString() 
+      },
+    });
+  };
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#f3f4f6', justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#e91e63" />
+      </View>
+    );
+  }
+
+  const handlePrint = async (tableName: string, tableId: number | string, codeLabel: string) => {
+    const qrUrl = getQrUrl(tableId);
+    const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrUrl)}`;
     
     const htmlContent = `
       <html>
@@ -107,7 +155,7 @@ export default function BarcodesPage() {
             <div class="qr-container">
               <img src="${qrImageUrl}" />
             </div>
-            <div class="value">${qrValue}</div>
+            <div class="value">${codeLabel}</div>
             <div class="footer-text">Yoqimli ishtaha tilaymiz!</div>
           </div>
           <script>
@@ -142,7 +190,7 @@ export default function BarcodesPage() {
     }
   };
 
-  const confirmPrint = (tableName: string, qrValue: string) => {
+  const confirmPrint = (tableName: string, tableId: number | string, codeLabel: string) => {
     Alert.alert(
       "QR-kodni chop etish",
       `"${tableName}" uchun QR-kodni chop etishni xohlaysizmi?`,
@@ -150,7 +198,7 @@ export default function BarcodesPage() {
         { text: "Bekor qilish", style: "cancel" },
         { 
           text: "Chop etish", 
-          onPress: () => handlePrint(tableName, qrValue),
+          onPress: () => handlePrint(tableName, tableId, codeLabel),
           style: "default"
         }
       ]
@@ -160,7 +208,13 @@ export default function BarcodesPage() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => {
+          if (router.canGoBack()) {
+            router.back();
+          } else {
+            router.replace('/');
+          }
+        }}>
           <ChevronLeft size={24} color="#333" />
           <Text style={styles.backText}>Orqaga</Text>
         </TouchableOpacity>
@@ -169,19 +223,15 @@ export default function BarcodesPage() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.subHeader}>Chop etish uchun stol kartasini bosing</Text>
+        <Text style={styles.subHeader}>Skanerlash yoki mijoz ko'rinishiga o'tish uchun stolni tanlang</Text>
         <View style={styles.grid}>
           {tables.map((table) => {
-            const qrValue = table.barcode || table.id.toString().padStart(12, '0');
-            const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrValue)}`;
+            const codeLabel = table.barcode || table.id.toString().padStart(12, '0');
+            const qrUrl = getQrUrl(table.id);
+            const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrUrl)}`;
             
             return (
-              <TouchableOpacity 
-                key={table.id} 
-                style={styles.card} 
-                onPress={() => confirmPrint(table.name, qrValue)}
-                activeOpacity={0.7}
-              >
+              <View key={table.id} style={styles.card}>
                 <Text style={styles.tableName}>{table.name}</Text>
                 <View style={styles.qrWrapper}>
                   <Image 
@@ -190,13 +240,34 @@ export default function BarcodesPage() {
                     resizeMode="contain"
                   />
                 </View>
-                <Text style={styles.qrValue}>{qrValue}</Text>
+                <Text style={styles.qrValue}>{codeLabel}</Text>
                 
-                <View style={styles.printAction}>
-                  <Printer size={14} color="#e91e63" />
-                  <Text style={styles.printActionText}>Chop etish</Text>
+                <View style={styles.actionRow}>
+                  <TouchableOpacity 
+                    style={[styles.actionBtn, styles.printBtn]} 
+                    onPress={() => confirmPrint(table.name, table.id, codeLabel)}
+                    activeOpacity={0.7}
+                  >
+                    <Printer size={12} color="#e91e63" />
+                    <Text style={styles.printText}>Chop etish</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    style={[styles.actionBtn, styles.viewBtn]} 
+                    onPress={() => {
+                      if (Platform.OS === 'web') {
+                        window.open(qrUrl, '_blank');
+                      } else {
+                        Linking.openURL(qrUrl).catch(err => console.error("Couldn't open URL", err));
+                      }
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <ExternalLink size={12} color="#374151" />
+                    <Text style={styles.viewText}>Mijoz o'tishi</Text>
+                  </TouchableOpacity>
                 </View>
-              </TouchableOpacity>
+              </View>
             );
           })}
         </View>
@@ -259,10 +330,10 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: '#fff',
-    padding: 20,
+    padding: 18,
     borderRadius: 16,
     alignItems: 'center',
-    width: 220,
+    width: 235,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
@@ -293,23 +364,40 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
     letterSpacing: 2,
   },
-  printAction: {
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginTop: 14,
+    width: '100%',
+  },
+  actionBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    marginTop: 14,
-    backgroundColor: '#fff5f7',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
+    gap: 4,
+    paddingVertical: 8,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#ffd0db',
-    width: '100%',
   },
-  printActionText: {
+  printBtn: {
+    backgroundColor: '#fff5f7',
+    borderColor: '#ffd0db',
+  },
+  printText: {
     color: '#e91e63',
     fontWeight: '700',
-    fontSize: 12,
+    fontSize: 11,
+  },
+  viewBtn: {
+    backgroundColor: '#f3f4f6',
+    borderColor: '#e5e7eb',
+  },
+  viewText: {
+    color: '#374151',
+    fontWeight: '700',
+    fontSize: 11,
   },
 });

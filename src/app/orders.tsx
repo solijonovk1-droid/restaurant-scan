@@ -1,59 +1,55 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Platform } from 'react-native';
-import { ChevronLeft, Utensils, Coffee, Clock } from 'lucide-react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Platform, ActivityIndicator } from 'react-native';
+import { ChevronLeft, Utensils, Coffee, Clock, FileText } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-
-const detailedOrders = [
-  {
-    id: 5, table: "Stol 8", time: "17:43", amount: "156,00 UZS",
-    waiter: "Otabek A.",
-    items: [
-      { name: "Osh", qty: 2, price: "60,00 UZS", icon: Utensils },
-      { name: "Achchiq-chuchuk", qty: 2, price: "30,00 UZS", icon: Utensils },
-      { name: "Qora choy", qty: 1, price: "6,00 UZS", icon: Coffee }
-    ]
-  },
-  {
-    id: 4, table: "Stol 10", time: "17:25", amount: "269,00 UZS",
-    waiter: "Jasur",
-    items: [
-      { name: "Shashlik (Qiyma)", qty: 4, price: "120,00 UZS", icon: Utensils },
-      { name: "Non", qty: 2, price: "10,00 UZS", icon: Utensils },
-      { name: "Cola 1.5L", qty: 1, price: "19,00 UZS", icon: Coffee }
-    ]
-  },
-  {
-    id: 3, table: "Stol 6", time: "17:14", amount: "177,00 UZS",
-    waiter: "Otabek A.",
-    items: [
-      { name: "Lag'mon", qty: 2, price: "80,00 UZS", icon: Utensils },
-      { name: "Salat (Bahor)", qty: 1, price: "17,00 UZS", icon: Utensils }
-    ]
-  },
-  {
-    id: 2, table: "Fotih D. (Dastavka)", time: "16:52", amount: "645,00 UZS",
-    waiter: "Dastavshik",
-    items: [
-      { name: "Set 'Katta Oila'", qty: 1, price: "500,00 UZS", icon: Utensils },
-      { name: "Fanta 1.5L", qty: 2, price: "38,00 UZS", icon: Coffee },
-      { name: "Somsalar", qty: 5, price: "50,00 UZS", icon: Utensils },
-      { name: "Yetkazib berish", qty: 1, price: "57,00 UZS", icon: Utensils }
-    ]
-  },
-  {
-    id: 1, table: "Stol 2", time: "16:26", amount: "115,00 UZS",
-    waiter: "Sardor",
-    items: [
-      { name: "Qozon kabob", qty: 1, price: "95,00 UZS", icon: Utensils },
-      { name: "Ko'k choy", qty: 1, price: "5,00 UZS", icon: Coffee },
-      { name: "Limon", qty: 1, price: "15,00 UZS", icon: Utensils }
-    ]
-  }
-];
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function OrdersPage() {
   const router = useRouter();
+  const [orders, setOrders] = useState<any[]>([]);
+  const [currency, setCurrency] = useState<string>("UZS");
+  const [loading, setLoading] = useState(true);
+
+  const loadOrders = async () => {
+    try {
+      const savedAccId = await AsyncStorage.getItem('currentAccountId');
+      if (!savedAccId) {
+        router.replace('/login');
+        return;
+      }
+      
+      const storedOrders = await AsyncStorage.getItem(`savedOrders_${savedAccId}`);
+      if (storedOrders) {
+        setOrders(JSON.parse(storedOrders));
+      } else {
+        setOrders([]);
+      }
+      
+      const storedCurrency = await AsyncStorage.getItem(`savedCurrency_${savedAccId}`);
+      if (storedCurrency) {
+        setCurrency(storedCurrency);
+      }
+    } catch (err) {
+      console.error("Error loading orders in notes:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadOrders();
+    const interval = setInterval(loadOrders, 1500);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#f8f9fa', justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#e91e63" />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -65,9 +61,15 @@ export default function OrdersPage() {
         start={[0, 0]} end={[1, 0]}
         style={styles.header}
       >
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => {
+          if (router.canGoBack()) {
+            router.back();
+          } else {
+            router.replace('/');
+          }
+        }}>
           <ChevronLeft size={28} color="#fff" />
-          <Text style={styles.headerTitle}>Barcha Buyurtmalar (Eslatmalar)</Text>
+          <Text style={styles.headerTitle}>Faol Buyurtmalar (Eslatmalar)</Text>
         </TouchableOpacity>
       </LinearGradient>
 
@@ -75,49 +77,70 @@ export default function OrdersPage() {
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.pageSubtitle}>Bugungi faol buyurtmalar ro'yxati va ularning tarkibi:</Text>
         
-        <View style={styles.ordersGrid}>
-          {detailedOrders.map((order) => (
-            <View key={order.id} style={styles.orderCard}>
-              <View style={styles.cardHeader}>
-                <View style={styles.headerRow}>
-                  <View style={styles.orderBadge}>
-                    <Text style={styles.orderBadgeText}>{order.id}</Text>
-                  </View>
-                  <Text style={styles.tableName}>{order.table}</Text>
-                </View>
-                <View style={styles.headerRow}>
-                  <Clock size={14} color="#868e96" />
-                  <Text style={styles.timeText}>{order.time}</Text>
-                </View>
-              </View>
-
-              <View style={styles.waiterRow}>
-                <Text style={styles.waiterText}>Xizmat ko'rsatuvchi: <Text style={styles.waiterName}>{order.waiter}</Text></Text>
-              </View>
-
-              <View style={styles.divider} />
-
-              <View style={styles.itemsList}>
-                {order.items.map((item, idx) => (
-                  <View key={idx} style={styles.itemRow}>
-                    <View style={styles.itemNameWrapper}>
-                      <item.icon size={12} color="#6c757d" style={{marginRight: 6}} />
-                      <Text style={styles.itemNameText}>{item.qty}x {item.name}</Text>
+        {orders.length > 0 ? (
+          <View style={styles.ordersGrid}>
+            {orders.map((order) => (
+              <View key={order.id} style={styles.orderCard}>
+                <View style={styles.cardHeader}>
+                  <View style={styles.headerRow}>
+                    <View style={styles.orderBadge}>
+                      <Text style={styles.orderBadgeText}>{order.id}</Text>
                     </View>
-                    <Text style={styles.itemPriceText}>{item.price}</Text>
+                    <Text style={styles.tableName}>{order.table}</Text>
                   </View>
-                ))}
-              </View>
+                  <View style={styles.headerRow}>
+                    <Clock size={14} color="#868e96" />
+                    <Text style={styles.timeText}>{order.time}</Text>
+                  </View>
+                </View>
 
-              <View style={styles.divider} />
+                <View style={styles.waiterRow}>
+                  <Text style={styles.waiterText}>Xizmat ko'rsatuvchi: <Text style={styles.waiterName}>{order.waiter || "Mijoz (QR)"}</Text></Text>
+                </View>
 
-              <View style={styles.cardFooter}>
-                <Text style={styles.totalLabel}>Jami summa:</Text>
-                <Text style={styles.totalAmount}>{order.amount}</Text>
+                <View style={styles.divider} />
+
+                <View style={styles.itemsList}>
+                  {order.items && order.items.length > 0 ? (
+                    order.items.map((item: any, idx: number) => {
+                      const isDrink = /choy|cola|fanta|limon|coca|suv/i.test(item.name);
+                      const IconComponent = isDrink ? Coffee : Utensils;
+                      
+                      const formattedItemPrice = typeof item.price === 'number'
+                        ? (item.price * item.qty).toLocaleString('uz-UZ') + " " + currency
+                        : item.price;
+
+                      return (
+                        <View key={idx} style={styles.itemRow}>
+                          <View style={styles.itemNameWrapper}>
+                            <IconComponent size={12} color="#6c757d" style={{marginRight: 6}} />
+                            <Text style={styles.itemNameText}>{item.qty}x {item.name}</Text>
+                          </View>
+                          <Text style={styles.itemPriceText}>{formattedItemPrice}</Text>
+                        </View>
+                      );
+                    })
+                  ) : (
+                    <Text style={{ fontSize: 13, color: '#868e96', fontStyle: 'italic' }}>Taomlar kiritilmagan</Text>
+                  )}
+                </View>
+
+                <View style={styles.divider} />
+
+                <View style={styles.cardFooter}>
+                  <Text style={styles.totalLabel}>Jami summa:</Text>
+                  <Text style={styles.totalAmount}>{order.amount}</Text>
+                </View>
               </View>
-            </View>
-          ))}
-        </View>
+            ))}
+          </View>
+        ) : (
+          <View style={styles.noOrdersContainer}>
+            <FileText size={48} color="#cbd5e1" />
+            <Text style={styles.noOrdersText}>Faol buyurtmalar mavjud emas</Text>
+            <Text style={styles.noOrdersSub}>Mijozlar buyurtma berishsa, bu yerda ko'rinadi.</Text>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -179,5 +202,32 @@ const styles = StyleSheet.create({
   itemPriceText: { fontSize: 13, color: '#868e96', fontWeight: '600' },
   cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 },
   totalLabel: { fontSize: 14, color: '#495057', fontWeight: '600' },
-  totalAmount: { fontSize: 18, color: '#d80056', fontWeight: '800' }
+  totalAmount: { fontSize: 18, color: '#d80056', fontWeight: '800' },
+  noOrdersContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+    marginTop: 20,
+  },
+  noOrdersText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#334155',
+    marginTop: 16,
+  },
+  noOrdersSub: {
+    fontSize: 13,
+    color: '#64748b',
+    marginTop: 6,
+    textAlign: 'center',
+  },
 });
