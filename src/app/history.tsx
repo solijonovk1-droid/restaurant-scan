@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Mod
 import { useRouter } from 'expo-router';
 import { ChevronLeft, ChevronRight, Users, DollarSign, ShoppingBag, Calendar, X } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabaseService } from '../services/supabaseService';
 
 // Seed data for history if empty
 const MOCK_SEED_HISTORY = [
@@ -203,20 +204,14 @@ export default function HistoryPage() {
       setAccountId(savedAccId);
 
       // 1. Get saved currency
-      const savedCurrency = await AsyncStorage.getItem(`savedCurrency_${savedAccId}`);
+      const savedCurrency = await supabaseService.getCurrency(savedAccId);
       if (savedCurrency) {
         setCurrency(savedCurrency);
       }
 
       // 2. Get history orders
-      const storedHistory = await AsyncStorage.getItem(`savedOrderHistory_${savedAccId}`);
-      if (storedHistory) {
-        setHistoryOrders(JSON.parse(storedHistory));
-      } else {
-        // Seed initial mock history data as empty for new accounts
-        await AsyncStorage.setItem(`savedOrderHistory_${savedAccId}`, JSON.stringify([]));
-        setHistoryOrders([]);
-      }
+      const storedHistory = await supabaseService.getOrderHistory(savedAccId);
+      setHistoryOrders(storedHistory || []);
     } catch (err) {
       console.error("Error loading sales history:", err);
     } finally {

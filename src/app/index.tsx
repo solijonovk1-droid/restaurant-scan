@@ -36,6 +36,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabaseService } from '../services/supabaseService';
 
 const DEFAULT_MENU_ITEMS = [
   { id: "1", name: "Osh (Palov)", price: 45000, category: "Taomlar", desc: "Qo'y go'shti, zafarli guruch, mayiz va no'xat bilan tayyorlangan milliy palov.", image: "https://images.unsplash.com/photo-1626804475315-7744b475edfd?w=200" },
@@ -107,6 +108,10 @@ export default function AdminPage() {
   const [newTableName, setNewTableName] = useState("");
   const [newTableSeats, setNewTableSeats] = useState("");
 
+  // Table Action Selector Modal (Order / Reserve) states
+  const [tableActionModalVisible, setTableActionModalVisible] = useState(false);
+  const [selectedTableForAction, setSelectedTableForAction] = useState<any>(null);
+
   // Move Table Modal States
   const [moveModalVisible, setMoveModalVisible] = useState(false);
   const [selectedSourceTable, setSelectedSourceTable] = useState<any>(null);
@@ -145,44 +150,36 @@ export default function AdminPage() {
         setAuthChecked(true);
 
         // Load current user details
-        const storedUsers = await AsyncStorage.getItem('savedUsers');
-        const users = storedUsers ? JSON.parse(storedUsers) : [];
+        const users = await supabaseService.getUsers();
         const user = users.find((u: any) => u.accountId === savedAccId);
         if (user) {
           setCurrentUser(user);
         }
 
         // Load restaurant name
-        const savedName = await AsyncStorage.getItem(`savedRestaurantName_${savedAccId}`);
+        const savedName = await supabaseService.getRestaurantName(savedAccId);
         if (savedName) {
           setRestaurantName(savedName);
           setRestaurantNameInput(savedName);
         }
 
         // Load currency
-        const savedCurrency = await AsyncStorage.getItem(`savedCurrency_${savedAccId}`);
+        const savedCurrency = await supabaseService.getCurrency(savedAccId);
         if (savedCurrency) {
           setCurrency(savedCurrency);
         }
 
         // Load tables
-        const storedTables = await AsyncStorage.getItem(`savedTables_${savedAccId}`);
+        const storedTables = await supabaseService.getTables(savedAccId);
         if (storedTables) {
-          const parsedTables = JSON.parse(storedTables);
-          setTablesData(parsedTables);
+          setTablesData(storedTables);
           for (const key in allTables) delete allTables[key];
-          Object.assign(allTables, parsedTables);
+          Object.assign(allTables, storedTables);
         }
 
         // Load orders
-        const storedOrders = await AsyncStorage.getItem(`savedOrders_${savedAccId}`);
-        if (storedOrders) {
-          const parsedOrders = JSON.parse(storedOrders);
-          setOrdersList(parsedOrders);
-        } else {
-          await AsyncStorage.setItem(`savedOrders_${savedAccId}`, JSON.stringify([]));
-          setOrdersList([]);
-        }
+        const storedOrders = await supabaseService.getOrders(savedAccId);
+        setOrdersList(storedOrders || []);
       } catch (error) {
         console.error("Error syncing data:", error);
       }
@@ -205,6 +202,10 @@ export default function AdminPage() {
   };
 
   const handleSaveProfile = async () => {
+    if (!accountId) {
+      Alert.alert("Xatolik", "Hisob aniqlanmadi.");
+      return;
+    }
     if (!profileUsername.trim() || !profileRestaurantName.trim() || !profilePassword) {
       Alert.alert("Xatolik", "Iltimos, barcha maydonlarni to'ldiring.");
       return;
@@ -240,23 +241,14 @@ export default function AdminPage() {
         return;
       }
 
-      const updatedUsers = users.map((u: any) => {
-        if (u.accountId === accountId) {
-          return {
-            ...u,
-            username: profileUsername.trim(),
-            restaurantName: profileRestaurantName.trim(),
-            password: profilePassword
-          };
-        }
-        return u;
-      });
+      await supabaseService.updateUserProfile(accountId, profileUsername.trim(), profileRestaurantName.trim(), profilePassword);
 
-      await AsyncStorage.setItem('savedUsers', JSON.stringify(updatedUsers));
-      await AsyncStorage.setItem(`savedRestaurantName_${accountId}`, profileRestaurantName.trim());
-
-      const updatedUser = updatedUsers.find((u: any) => u.accountId === accountId);
-      setCurrentUser(updatedUser);
+      // Refresh local users list and current user details
+      const freshUsers = await supabaseService.getUsers();
+      const updatedUser = freshUsers.find((u: any) => u.accountId === accountId);
+      if (updatedUser) {
+        setCurrentUser(updatedUser);
+      }
       setRestaurantName(profileRestaurantName.trim());
       setRestaurantNameInput(profileRestaurantName.trim());
 
@@ -274,8 +266,7 @@ export default function AdminPage() {
       const orderToPay = ordersList.find(o => o.id === orderId);
       if (!orderToPay) return;
 
-      const storedHistory = await AsyncStorage.getItem(`savedOrderHistory_${accountId}`);
-      const currentHistory = storedHistory ? JSON.parse(storedHistory) : [];
+      const currentHistory = await supabaseService.getOrderHistory(accountId);
 
       const now = new Date();
       const year = now.getFullYear();
@@ -308,10 +299,10 @@ export default function AdminPage() {
       };
 
       const updatedHistory = [completedOrder, ...currentHistory];
-      await AsyncStorage.setItem(`savedOrderHistory_${accountId}`, JSON.stringify(updatedHistory));
+      await supabaseService.setOrderHistory(accountId, updatedHistory);
 
       const updatedOrders = ordersList.filter(o => o.id !== orderId);
-      await AsyncStorage.setItem(`savedOrders_${accountId}`, JSON.stringify(updatedOrders));
+      await supabaseService.setOrders(accountId, updatedOrders);
       setOrdersList(updatedOrders);
 
       const resetTables = { ...tablesData };
@@ -332,7 +323,7 @@ export default function AdminPage() {
       }
 
       if (tableUpdated) {
-        await AsyncStorage.setItem(`savedTables_${accountId}`, JSON.stringify(resetTables));
+        await supabaseService.setTables(accountId, resetTables);
         setTablesData(resetTables);
         for (const key in allTables) delete allTables[key];
         Object.assign(allTables, resetTables);
@@ -363,8 +354,8 @@ export default function AdminPage() {
               const orderToCancel = ordersList.find(o => o.id === orderId);
               if (!orderToCancel) return;
 
-              const updatedOrders = ordersList.filter(o => o.id !== orderId);
-              await AsyncStorage.setItem(`savedOrders_${accountId}`, JSON.stringify(updatedOrders));
+               const updatedOrders = ordersList.filter(o => o.id !== orderId);
+              await supabaseService.setOrders(accountId, updatedOrders);
               setOrdersList(updatedOrders);
 
               const resetTables = { ...tablesData };
@@ -385,7 +376,7 @@ export default function AdminPage() {
               }
 
               if (tableUpdated) {
-                await AsyncStorage.setItem(`savedTables_${accountId}`, JSON.stringify(resetTables));
+                await supabaseService.setTables(accountId, resetTables);
                 setTablesData(resetTables);
                 for (const key in allTables) delete allTables[key];
                 Object.assign(allTables, resetTables);
@@ -436,20 +427,11 @@ export default function AdminPage() {
       return;
     }
     try {
-      await AsyncStorage.setItem(`savedRestaurantName_${accountId}`, restaurantNameInput.trim());
+      await supabaseService.setRestaurantName(accountId, restaurantNameInput.trim());
       setRestaurantName(restaurantNameInput.trim());
 
-      const storedUsers = await AsyncStorage.getItem('savedUsers');
-      const users = storedUsers ? JSON.parse(storedUsers) : [];
-      const updatedUsers = users.map((u: any) => {
-        if (u.accountId === accountId) {
-          return { ...u, restaurantName: restaurantNameInput.trim() };
-        }
-        return u;
-      });
-      await AsyncStorage.setItem('savedUsers', JSON.stringify(updatedUsers));
-      
-      const updatedUser = updatedUsers.find((u: any) => u.accountId === accountId);
+      const freshUsers = await supabaseService.getUsers();
+      const updatedUser = freshUsers.find((u: any) => u.accountId === accountId);
       if (updatedUser) {
         setCurrentUser(updatedUser);
       }
@@ -463,7 +445,7 @@ export default function AdminPage() {
   const handleSaveCurrency = async (cur: string) => {
     if (!accountId) return;
     try {
-      await AsyncStorage.setItem(`savedCurrency_${accountId}`, cur);
+      await supabaseService.setCurrency(accountId, cur);
       setCurrency(cur);
     } catch (err) {
       console.error(err);
@@ -535,8 +517,8 @@ export default function AdminPage() {
                   people: undefined
                 }));
               }
-              await AsyncStorage.setItem(`savedTables_${accountId}`, JSON.stringify(resetTables));
-              await AsyncStorage.setItem(`savedOrders_${accountId}`, JSON.stringify([]));
+              await supabaseService.setTables(accountId, resetTables);
+              await supabaseService.setOrders(accountId, []);
               setTablesData(resetTables);
               setOrdersList([]);
               for (const key in allTables) delete allTables[key];
@@ -572,10 +554,10 @@ export default function AdminPage() {
                 }))
               };
               
-              await AsyncStorage.setItem(`savedTables_${accountId}`, JSON.stringify(initialTables));
-              await AsyncStorage.setItem(`savedOrders_${accountId}`, JSON.stringify([]));
-              await AsyncStorage.setItem(`savedOrderHistory_${accountId}`, JSON.stringify([]));
-              await AsyncStorage.setItem(`savedMenuItems_${accountId}`, JSON.stringify(DEFAULT_MENU_ITEMS));
+              await supabaseService.setTables(accountId, initialTables);
+              await supabaseService.setOrders(accountId, []);
+              await supabaseService.setOrderHistory(accountId, []);
+              await supabaseService.setMenuItems(accountId, DEFAULT_MENU_ITEMS);
               
               setTablesData(initialTables);
               for (const key in allTables) delete allTables[key];
@@ -685,9 +667,9 @@ export default function AdminPage() {
         };
       }
 
-      // Save to AsyncStorage
-      await AsyncStorage.setItem(`savedOrders_${accountId}`, JSON.stringify(updatedOrders));
-      await AsyncStorage.setItem(`savedTables_${accountId}`, JSON.stringify(updatedTables));
+      // Save to Supabase and Local
+      await supabaseService.setOrders(accountId, updatedOrders);
+      await supabaseService.setTables(accountId, updatedTables);
 
       // Update React State
       setOrdersList(updatedOrders);
@@ -858,7 +840,8 @@ export default function AdminPage() {
             { icon: QrCode, text: 'QR-kod', action: () => router.push('/barcodes') },
             { icon: History, text: 'Tarix', action: () => router.push('/history') },
             { icon: Utensils, text: 'Menyu', action: () => router.push('/admin-menu') },
-            { icon: FileText, text: 'Eslatmalar', action: () => router.push('/orders') }
+            { icon: FileText, text: 'Eslatmalar', action: () => router.push('/orders') },
+            { icon: User, text: 'Afitsantlar', action: () => router.push('/waiters' as any) }
           ].map((item, i) => (
             <TouchableOpacity key={i} style={styles.toolbarBtn} onPress={item.action}>
               <item.icon color="#fff" size={20} />
@@ -942,7 +925,8 @@ export default function AdminPage() {
                         setCheckoutModalVisible(true);
                       }
                     } else {
-                      showModal("Stol", `${t.name} tanlandi. Holati: ${effectiveStatus === 'empty' ? 'Bo\'sh' : effectiveStatus === 'reserved' ? 'Band' : effectiveStatus}`);
+                      setSelectedTableForAction(t);
+                      setTableActionModalVisible(true);
                     }
                   }}>
                     <LinearGradient 
@@ -1099,6 +1083,115 @@ export default function AdminPage() {
                   <Text style={[styles.modalButtonText, { fontSize: 13 }]}>Yopish</Text>
                 </TouchableOpacity>
               </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Table Action Selector Modal (Order / Reserve) */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={tableActionModalVisible}
+        onRequestClose={() => {
+          setTableActionModalVisible(false);
+          setSelectedTableForAction(null);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { width: '90%', maxWidth: 400, padding: 24, borderRadius: 20 }]}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: 16 }}>
+              <Text style={[styles.modalTitle, { marginBottom: 0, fontSize: 18 }]}>
+                {selectedTableForAction?.name}
+              </Text>
+              <TouchableOpacity onPress={() => {
+                setTableActionModalVisible(false);
+                setSelectedTableForAction(null);
+              }}>
+                <X size={20} color="#6b7280" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={{ fontSize: 14, color: '#4b5563', alignSelf: 'flex-start', marginBottom: 24 }}>
+              Stol holati: <Text style={{ fontWeight: 'bold' }}>{selectedTableForAction?.status === 'reserved' ? "Band qilingan" : "Bo'sh"}</Text>. Nima qilmoqchisiz?
+            </Text>
+
+            <View style={{ flexDirection: 'column', gap: 12, width: '100%' }}>
+              <TouchableOpacity 
+                style={[styles.modalButton, { backgroundColor: '#e91e63', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: 46, borderRadius: 12 }]} 
+                onPress={() => {
+                  const tableIdStr = selectedTableForAction?.id?.toString() || '';
+                  setTableActionModalVisible(false);
+                  setSelectedTableForAction(null);
+                  router.push({
+                    pathname: '/menu',
+                    params: { accountId: accountId || '', tableId: tableIdStr }
+                  });
+                }}
+              >
+                <Text style={[styles.modalButtonText, { fontSize: 14, fontWeight: '700' }]}>🍽️ Buyurtma olish</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[styles.modalButton, { backgroundColor: selectedTableForAction?.status === 'reserved' ? '#adb5bd' : '#1e1333', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: 46, borderRadius: 12 }]} 
+                onPress={async () => {
+                  try {
+                    if (!accountId || !selectedTableForAction) return;
+                    const isReserved = selectedTableForAction.status === 'reserved';
+                    const updatedTables = { ...tablesData };
+                    let tableUpdated = false;
+                    
+                    for (const category in updatedTables) {
+                      const idx = updatedTables[category].findIndex((item: any) => item.id.toString() === selectedTableForAction.id.toString());
+                      if (idx !== -1) {
+                        if (isReserved) {
+                          updatedTables[category][idx] = {
+                            ...updatedTables[category][idx],
+                            status: 'empty',
+                            subStatus: undefined,
+                            hasClock: undefined
+                          };
+                        } else {
+                          updatedTables[category][idx] = {
+                            ...updatedTables[category][idx],
+                            status: 'reserved',
+                            subStatus: 'Band qilingan',
+                            hasClock: true
+                          };
+                        }
+                        tableUpdated = true;
+                        break;
+                      }
+                    }
+                    
+                    if (tableUpdated) {
+                      await supabaseService.setTables(accountId, updatedTables);
+                      setTablesData(updatedTables);
+                      for (const key in allTables) delete allTables[key];
+                      Object.assign(allTables, updatedTables);
+                    }
+                  } catch (err) {
+                    console.error("Error updating table reservation:", err);
+                  } finally {
+                    setTableActionModalVisible(false);
+                    setSelectedTableForAction(null);
+                  }
+                }}
+              >
+                <Text style={[styles.modalButtonText, { fontSize: 14, fontWeight: '700' }]}>
+                  {selectedTableForAction?.status === 'reserved' ? "🔓 Bandlikdan chiqarish" : "🔒 Stolni band qilish"}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[styles.modalButton, { backgroundColor: '#f3f4f6', height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginTop: 8 }]} 
+                onPress={() => {
+                  setTableActionModalVisible(false);
+                  setSelectedTableForAction(null);
+                }}
+              >
+                <Text style={{ color: '#4b5563', fontWeight: 'bold', fontSize: 14 }}>Yopish</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>

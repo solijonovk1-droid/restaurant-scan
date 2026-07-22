@@ -103,6 +103,7 @@ async function createWindow() {
 
   // Enable seamless custom title bar overlay for Windows/Mac to match dark UI
   if (process.platform === 'win32' || process.platform === 'darwin') {
+    windowOptions.frame = false;
     windowOptions.titleBarStyle = 'hidden';
     windowOptions.titleBarOverlay = {
       color: '#120e1f', // Matches deep dark purple app UI background

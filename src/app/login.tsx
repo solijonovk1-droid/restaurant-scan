@@ -16,6 +16,7 @@ import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { User, Lock, Utensils, Eye, EyeOff } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabaseService } from '../services/supabaseService';
 
 export default function LoginScreen() {
   const [username, setUsername] = useState('');
@@ -33,9 +34,8 @@ export default function LoginScreen() {
     setLoading(true);
 
     try {
-      // Load registered users
-      const storedUsers = await AsyncStorage.getItem('savedUsers');
-      const users = storedUsers ? JSON.parse(storedUsers) : [];
+      // Load registered users from Supabase/local cache
+      const users = await supabaseService.getUsers();
 
       // Find user
       const user = users.find(

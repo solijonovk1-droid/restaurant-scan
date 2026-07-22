@@ -4,6 +4,7 @@ import { ChevronLeft, Utensils, Coffee, Clock, FileText } from 'lucide-react-nat
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabaseService } from '../services/supabaseService';
 
 export default function OrdersPage() {
   const router = useRouter();
@@ -19,14 +20,10 @@ export default function OrdersPage() {
         return;
       }
       
-      const storedOrders = await AsyncStorage.getItem(`savedOrders_${savedAccId}`);
-      if (storedOrders) {
-        setOrders(JSON.parse(storedOrders));
-      } else {
-        setOrders([]);
-      }
+      const storedOrders = await supabaseService.getOrders(savedAccId);
+      setOrders(storedOrders || []);
       
-      const storedCurrency = await AsyncStorage.getItem(`savedCurrency_${savedAccId}`);
+      const storedCurrency = await supabaseService.getCurrency(savedAccId);
       if (storedCurrency) {
         setCurrency(storedCurrency);
       }

@@ -17,6 +17,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ShoppingBag, ChevronLeft, Check, Plus, Minus, Search, X } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabaseService } from '../services/supabaseService';
 
 const DEFAULT_MENU_ITEMS = [
   { id: "1", name: "Osh (Palov)", price: 45000, category: "Taomlar", desc: "Qo'y go'shti, zafarli guruch, mayiz va no'xat bilan tayyorlangan milliy palov.", image: "https://images.unsplash.com/photo-1626804475315-7744b475edfd?w=200" },
@@ -35,7 +36,9 @@ const DEFAULT_MENU_ITEMS = [
 const CATEGORIES = ['BARCHA TAOMLAR', 'Taomlar', 'Kaboblar', 'Shirinliklar', 'Ichimliklar'];
 
 export default function CustomerMenuPage() {
-  const { tableId, accountId } = useLocalSearchParams();
+  const params = useLocalSearchParams();
+  const [accountId, setAccountId] = useState<string>((params.accountId as string) || "");
+  const [tableId, setTableId] = useState<string>((params.tableId as string) || "");
   const router = useRouter();
   const [activeCategory, setActiveCategory] = useState('BARCHA TAOMLAR');
   const [cart, setCart] = useState<Record<string, number>>({});
@@ -47,27 +50,73 @@ export default function CustomerMenuPage() {
   const [menuItems, setMenuItems] = useState<any[]>(DEFAULT_MENU_ITEMS);
   const [tablesData, setTablesData] = useState<any>({});
 
+  // Direct sync from URL params
+  useEffect(() => {
+    if (params.accountId) setAccountId(params.accountId as string);
+    if (params.tableId) setTableId(params.tableId as string);
+  }, [params.accountId, params.tableId]);
+
+  // Inject Telegram WebApp script and parse start_param if available
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+
+    const script = document.createElement('script');
+    script.src = 'https://telegram.org/js/telegram-web-app.js';
+    script.async = true;
+    script.onload = () => {
+      console.log("[Telegram WebApp] Script loaded successfully.");
+      const tg = (window as any).Telegram?.WebApp;
+      if (tg) {
+        tg.ready();
+        tg.expand();
+        
+        const startParam = tg.initDataUnsafe?.start_param;
+        if (startParam) {
+          console.log("[Telegram WebApp] Detected start_param:", startParam);
+          // startParam is formatted as accountId___tableId
+          let delimiter = '___';
+          if (startParam.includes('___')) delimiter = '___';
+          else if (startParam.includes('--')) delimiter = '--';
+          else if (startParam.includes('-')) delimiter = '-';
+
+          const parts = startParam.split(delimiter);
+          if (parts.length >= 2) {
+            setAccountId(parts[0]);
+            setTableId(parts.slice(1).join(delimiter));
+          }
+        }
+      }
+    };
+    document.head.appendChild(script);
+    return () => {
+      try {
+        document.head.removeChild(script);
+      } catch (err) {
+        // Safe check if script was already removed
+      }
+    };
+  }, []);
+
   useEffect(() => {
     const loadData = async () => {
       if (!accountId) return;
       try {
         // Load menu items
-        const stored = await AsyncStorage.getItem(`savedMenuItems_${accountId}`);
-        if (stored) {
-          const parsed = JSON.parse(stored);
+        const stored = await supabaseService.getMenuItems(accountId);
+        if (stored && stored.length > 0) {
           setMenuItems(prev => {
-            if (JSON.stringify(prev) !== JSON.stringify(parsed)) {
-              return parsed;
+            if (JSON.stringify(prev) !== JSON.stringify(stored)) {
+              return stored;
             }
             return prev;
           });
         } else {
-          await AsyncStorage.setItem(`savedMenuItems_${accountId}`, JSON.stringify(DEFAULT_MENU_ITEMS));
+          await supabaseService.setMenuItems(accountId, DEFAULT_MENU_ITEMS);
           setMenuItems(DEFAULT_MENU_ITEMS);
         }
 
         // Load currency
-        const storedCurrency = await AsyncStorage.getItem(`savedCurrency_${accountId}`);
+        const storedCurrency = await supabaseService.getCurrency(accountId);
         if (storedCurrency) {
           setCurrency(storedCurrency);
         }
@@ -85,9 +134,9 @@ export default function CustomerMenuPage() {
     const loadTables = async () => {
       if (!accountId) return;
       try {
-        const storedTables = await AsyncStorage.getItem(`savedTables_${accountId}`);
+        const storedTables = await supabaseService.getTables(accountId);
         if (storedTables) {
-          setTablesData(JSON.parse(storedTables));
+          setTablesData(storedTables);
         }
       } catch (error) {
         console.error(error);
@@ -109,7 +158,7 @@ export default function CustomerMenuPage() {
 
   // Stol nomini aniqlaymiz
   const table = Object.values(tablesData).flat().find((t: any) => t.id.toString() === tableId?.toString());
-  const tableName = table ? table.name : `Stol-${tableId || '?'}`;
+  const tableName = table ? (table as any).name : `Stol-${tableId || '?'}`;
 
   const handleAddToCart = (itemId: string) => {
     setCart(prev => ({
@@ -165,17 +214,16 @@ export default function CustomerMenuPage() {
         })
       };
 
-      // 2. AsyncStorage'dagi buyurtmalarni yangilash
-      const storedOrders = await AsyncStorage.getItem(`savedOrders_${accountId}`);
-      let currentOrders = storedOrders ? JSON.parse(storedOrders) : [];
+      // 2. Supabase/Local'dagi buyurtmalarni yangilash
+      const currentOrders = await supabaseService.getOrders(accountId);
       
       // Yangi buyurtmani tepaga joylaymiz
-      currentOrders = [newOrder, ...currentOrders];
-      await AsyncStorage.setItem(`savedOrders_${accountId}`, JSON.stringify(currentOrders));
+      const updatedOrders = [newOrder, ...currentOrders];
+      await supabaseService.setOrders(accountId, updatedOrders);
 
-      // 3. AsyncStorage'dagi stollar holatini yangilash (stol band bo'ladi)
-      const storedTables = await AsyncStorage.getItem(`savedTables_${accountId}`);
-      let currentTables = storedTables ? JSON.parse(storedTables) : { ...tablesData };
+      // 3. Supabase/Local'dagi stollar holatini yangilash (stol band bo'ladi)
+      const storedTables = await supabaseService.getTables(accountId);
+      let currentTables = storedTables || { ...tablesData };
 
       // Barcha qavatlardagi stollardan mosini qidirib topamiz va band qilamiz
       let tableFound = false;
@@ -207,7 +255,7 @@ export default function CustomerMenuPage() {
         });
       }
 
-      await AsyncStorage.setItem(`savedTables_${accountId}`, JSON.stringify(currentTables));
+      await supabaseService.setTables(accountId, currentTables);
       
       // Muvaffaqiyat holatini saqlash
       setLastOrderDetails({
@@ -238,8 +286,10 @@ export default function CustomerMenuPage() {
         start={[0, 0]} end={[1, 0]}
         style={styles.header}
       >
-        {/* Chap tomondagi bo'sh joy (headerCenter markazda turishi uchun) */}
-        <View style={{ width: 80 }} />
+        {/* Chap tomondagi orqaga qaytish tugmasi */}
+        <TouchableOpacity style={{ width: 80, paddingLeft: 10, justifyContent: 'center' }} onPress={() => router.back()}>
+          <ChevronLeft size={24} color="#fff" />
+        </TouchableOpacity>
         
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>{tableName}</Text>
@@ -420,14 +470,26 @@ export default function CustomerMenuPage() {
               </View>
             )}
 
-            <TouchableOpacity 
-              style={styles.closeSuccessBtn} 
-              onPress={() => {
-                setOrderSuccess(false);
-              }}
-            >
-              <Text style={styles.closeSuccessText}>Menyuga qaytish</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 10, width: '100%', marginTop: 24 }}>
+              <TouchableOpacity 
+                style={[styles.closeSuccessBtn, { flex: 1, marginTop: 0, backgroundColor: '#f3f4f6' }]} 
+                onPress={() => {
+                  setOrderSuccess(false);
+                }}
+              >
+                <Text style={[styles.closeSuccessText, { color: '#4b5563' }]}>Menyuda qolish</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[styles.closeSuccessBtn, { flex: 1, marginTop: 0, backgroundColor: '#e91e63' }]} 
+                onPress={() => {
+                  setOrderSuccess(false);
+                  router.replace('/');
+                }}
+              >
+                <Text style={[styles.closeSuccessText, { color: '#fff' }]}>Asosiy ekranga</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>

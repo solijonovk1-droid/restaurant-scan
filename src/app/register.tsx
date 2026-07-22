@@ -16,6 +16,7 @@ import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { User, Lock, Utensils, Eye, EyeOff, ShieldCheck } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabaseService } from '../services/supabaseService';
 
 // Default menu items for new accounts to start with
 const DEFAULT_MENU_ITEMS = [
@@ -71,9 +72,8 @@ export default function RegisterScreen() {
 
     try {
       console.log("Fetching saved users...");
-      // Get current users list
-      const storedUsers = await AsyncStorage.getItem('savedUsers');
-      const users = storedUsers ? JSON.parse(storedUsers) : [];
+      // Get current users list from Supabase/cache
+      const users = await supabaseService.getUsers();
       console.log("Existing users count:", users.length);
 
       // Check if username is taken (case-insensitive)
@@ -106,19 +106,10 @@ export default function RegisterScreen() {
         }))
       };
 
-      console.log("Saving new user details to AsyncStorage...");
-      // Save user specific initial states
-      await AsyncStorage.setItem(`savedRestaurantName_${accountId}`, restaurantName.trim());
-      await AsyncStorage.setItem(`savedCurrency_${accountId}`, 'UZS');
-      await AsyncStorage.setItem(`savedTables_${accountId}`, JSON.stringify(initialTables));
-      await AsyncStorage.setItem(`savedOrders_${accountId}`, JSON.stringify([]));
-      await AsyncStorage.setItem(`savedOrderHistory_${accountId}`, JSON.stringify([]));
-      await AsyncStorage.setItem(`savedMenuItems_${accountId}`, JSON.stringify(DEFAULT_MENU_ITEMS));
-
-      // Append user to users list
-      const updatedUsers = [...users, newUser];
-      await AsyncStorage.setItem('savedUsers', JSON.stringify(updatedUsers));
-      console.log("Successfully saved updated users list to AsyncStorage.");
+      console.log("Saving new user details using supabaseService...");
+      // Save user details and default datasets to Supabase and local storage
+      await supabaseService.registerUser(newUser, initialTables, DEFAULT_MENU_ITEMS);
+      console.log("Successfully registered user on Supabase and local storage.");
 
       // Automatically log the user in
       await AsyncStorage.setItem('currentAccountId', accountId);

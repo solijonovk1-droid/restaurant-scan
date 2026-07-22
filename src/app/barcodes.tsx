@@ -38,9 +38,23 @@ export default function BarcodesPage() {
 
   // Dinamik ravishda mijoz menusi URL manzilini yaratamiz
   const getQrUrl = (tableId: number | string) => {
-    if (Platform.OS === 'web') {
-      return `${window.location.origin}/menu?accountId=${accountId}&tableId=${tableId}`;
+    // 1. Agar Telegram Bot username sozlangan bo'lsa, Telegram bot start linkini qaytaramiz
+    const botUsername = process.env.EXPO_PUBLIC_TELEGRAM_BOT_USERNAME;
+    if (botUsername && botUsername.trim() !== '') {
+      return `https://t.me/${botUsername.trim()}?start=${accountId}___${tableId}`;
     }
+
+    // 2. Aks holda, .env dagi EXPO_PUBLIC_WEB_APP_URL yoki joriy origin'dan foydalanamiz
+    const webAppUrl = process.env.EXPO_PUBLIC_WEB_APP_URL;
+    if (Platform.OS === 'web') {
+      let base = webAppUrl && webAppUrl.trim() !== '' ? webAppUrl.trim() : window.location.origin;
+      // Oxiridagi slashni olib tashlaymiz
+      if (base.endsWith('/')) {
+        base = base.slice(0, -1);
+      }
+      return `${base}/menu?accountId=${accountId}&tableId=${tableId}`;
+    }
+
     // Mobile/Native uchun deep link
     return Linking.createURL('/menu', {
       queryParams: { 
@@ -223,7 +237,7 @@ export default function BarcodesPage() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.subHeader}>Skanerlash yoki mijoz ko'rinishiga o'tish uchun stolni tanlang</Text>
+        <Text style={styles.subHeader}>{"Skanerlash yoki mijoz ko'rinishiga o'tish uchun stolni tanlang"}</Text>
         <View style={styles.grid}>
           {tables.map((table) => {
             const codeLabel = table.barcode || table.id.toString().padStart(12, '0');
@@ -264,7 +278,7 @@ export default function BarcodesPage() {
                     activeOpacity={0.7}
                   >
                     <ExternalLink size={12} color="#374151" />
-                    <Text style={styles.viewText}>Mijoz o'tishi</Text>
+                    <Text style={styles.viewText}>{"Mijoz o'tishi"}</Text>
                   </TouchableOpacity>
                 </View>
               </View>

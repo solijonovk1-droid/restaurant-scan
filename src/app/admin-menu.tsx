@@ -15,6 +15,7 @@ import {
 import { useRouter } from 'expo-router';
 import { ChevronLeft, Plus, Trash2, X, Image as ImageIcon, Edit } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabaseService } from '../services/supabaseService';
 
 const DEFAULT_MENU_ITEMS = [
   { id: "1", name: "Osh (Palov)", price: 45000, category: "Taomlar", desc: "Qo'y go'shti, zafarli guruch, mayiz va no'xat bilan tayyorlangan milliy palov.", image: "https://images.unsplash.com/photo-1626804475315-7744b475edfd?w=200" },
@@ -60,17 +61,17 @@ export default function AdminMenuPage() {
         setAccountId(savedAccId);
 
         // Load currency
-        const storedCurrency = await AsyncStorage.getItem(`savedCurrency_${savedAccId}`);
+        const storedCurrency = await supabaseService.getCurrency(savedAccId);
         if (storedCurrency) {
           setCurrency(storedCurrency);
         }
 
         // Load menu items
-        const stored = await AsyncStorage.getItem(`savedMenuItems_${savedAccId}`);
-        if (stored) {
-          setMenuItems(JSON.parse(stored));
+        const stored = await supabaseService.getMenuItems(savedAccId);
+        if (stored && stored.length > 0) {
+          setMenuItems(stored);
         } else {
-          await AsyncStorage.setItem(`savedMenuItems_${savedAccId}`, JSON.stringify(DEFAULT_MENU_ITEMS));
+          await supabaseService.setMenuItems(savedAccId, DEFAULT_MENU_ITEMS);
           setMenuItems(DEFAULT_MENU_ITEMS);
         }
       } catch (err) {
@@ -146,7 +147,7 @@ export default function AdminMenuPage() {
       }
 
       if (accountId) {
-        await AsyncStorage.setItem(`savedMenuItems_${accountId}`, JSON.stringify(updatedList));
+        await supabaseService.setMenuItems(accountId, updatedList);
       }
       setMenuItems(updatedList);
       
@@ -176,7 +177,7 @@ export default function AdminMenuPage() {
             try {
               const updatedList = menuItems.filter(item => item.id !== itemId);
               if (accountId) {
-                await AsyncStorage.setItem(`savedMenuItems_${accountId}`, JSON.stringify(updatedList));
+                await supabaseService.setMenuItems(accountId, updatedList);
               }
               setMenuItems(updatedList);
             } catch (error) {
