@@ -162,7 +162,7 @@ export default function Layout() {
       {isElectron && (
         <View style={[styles.titleBar, isMac ? styles.titleBarMac : styles.titleBarWin]}>
           <Image 
-            source={require('../../assets/images/app_logo_restaurant.png')} 
+            source={require('../../assets/images/icon.png')} 
             style={styles.titleBarLogo} 
           />
           <Text style={styles.titleBarTitle}>Restaurant Scan Pos</Text>
